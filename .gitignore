@@ -174,3 +174,12 @@ OTPTools/.claude/settings.local.json
 # Ignore backup files from 2FAS application
 exemple/
 exports/
+DIRECTIVES.md
+IMPROVEMENTS.md
+REVIEW.md
+
+
+.claude
+./claude-octopus
+.claude-octopus/state.json
+.claude-octopus/state.json.backup

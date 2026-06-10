@@ -122,6 +122,9 @@ Examples:
         action="store_true",
         help="List entries without generating QR codes",
     )
+    parser.add_argument(
+        "--version", action="version", version="%(prog)s 1.0.1"
+    )
 
     args = parser.parse_args()
 

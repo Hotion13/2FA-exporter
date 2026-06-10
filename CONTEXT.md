@@ -75,7 +75,7 @@ objets OTP standardisés.
 - **CLI intégrée** : Auto-détection et traitement direct dans `main.py`
 
 #### Configuration
-- `pyproject.toml`: métadonnées projet (nom: `2fa-exporter`), dépendances, script console `2fa-export`. Packaging via `setuptools` incluant `OTPTools`, `BackupProcessors` et `src`.
+- `pyproject.toml`: métadonnées projet (nom: `2fa-exporter`), dépendances, script console `2fa-exporter`. Packaging via `setuptools` incluant `OTPTools`, `BackupProcessors` et `src`.
 - `requirements.txt`: versions figées pour la prod (Pillow 11.3.0, qrcode 8.2, cryptography 45.0.7) et fallback si `pyproject.toml` absent.
 - `AGENTS.md`: règles et procédures opérationnelles (uv, installation, sync, offline, fallback, outils MCP).
 - Dossiers utilisateur: l'utilisateur définit ses propres dossiers pour les backups et la sortie.
@@ -147,15 +147,15 @@ objets OTP standardisés.
   - `uv venv .venv && uv pip install -e .`
   - Alternative: `uv sync` (offline: `uv sync --offline`).
 - Exécution CLI (nouvelles options):
-  - `uv run 2fa-export <backup_file> [<dossier_sortie>]`
+  - `uv run 2fa-exporter <backup_file> [<dossier_sortie>]`
   - `uv run python main.py <backup_file> [<dossier_sortie>] [--format] [--verbose] [--list-only]`
   - Exemples:
-    - `uv run 2fa-export backup.2fas ./exports`
-    - `uv run 2fa-export backup.2fas --list-only`
-    - `uv run 2fa-export backup.zip ./exports --verbose --format 2fas`
+    - `uv run 2fa-exporter backup.2fas ./exports`
+    - `uv run 2fa-exporter backup.2fas --list-only`
+    - `uv run 2fa-exporter backup.zip ./exports --verbose --format 2fas`
 - Sauvegardes chiffrées: exécution interactive obligatoire (prompt `getpass`), sinon `CorruptedBackupError` explicite.
 - Lock/CI:
   - `uv sync --frozen` (et `--offline` si nécessaire)
 
 ### Scripts console exposés
-- `2fa-export`: lance l'export des QR (`main:main`).
+- `2fa-exporter`: lance l'export des QR (`main:main`).

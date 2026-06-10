@@ -73,19 +73,19 @@ Script principal: `main.py` (CLI enrichie)
 ### Exécution de base
 ```
 uv run python main.py <backup_file> [<dossier_sortie>]
-uv run 2fa-export <backup_file> [<dossier_sortie>]
+uv run 2fa-exporter <backup_file> [<dossier_sortie>]
 ```
 
 ### Options CLI disponibles
 ```
 # Lister les entrées sans générer de QR codes
-uv run 2fa-export backup.2fas --list-only
+uv run 2fa-exporter backup.2fas --list-only
 
 # Mode verbeux avec détails
-uv run 2fa-export backup.2fas ./qrcodes --verbose
+uv run 2fa-exporter backup.2fas ./qrcodes --verbose
 
 # Forcer le format 2FAS (bypass auto-détection)
-uv run 2fa-export backup.zip ./qrcodes --format 2fas
+uv run 2fa-exporter backup.zip ./qrcodes --format 2fas
 
 # Aide complète
 uv run python main.py --help
@@ -95,13 +95,13 @@ uv run python main.py --help
 ```
 # Export standard
 uv run python main.py ~/Downloads/2fas-backup.json ./qrcodes
-uv run 2fa-export backup.2fas ./exports
+uv run 2fa-exporter backup.2fas ./exports
 
 # Inspection du contenu avant export
-uv run 2fa-export backup.2fas --list-only
+uv run 2fa-exporter backup.2fas --list-only
 
 # Export verbeux d'archive ZIP
-uv run 2fa-export backup.zip ./exports --verbose --format 2fas
+uv run 2fa-exporter backup.zip ./exports --verbose --format 2fas
 ```
 
 ### Sauvegardes chiffrées 2FAS
@@ -214,7 +214,7 @@ Tests de validation:
 - **Exécution** : `python tests/test_refactoring.py`
 
 ### Scripts console exposés
-- `2fa-export`: lance l'export des QR codes (`main:main`).
+- `2fa-exporter`: lance l'export des QR codes (`main:main`).
 
 #### Exemples d'utilisation modules (post-refactoring)
 ```python
@@ -240,7 +240,7 @@ filename = generate_safe_filename("GitHub", "user@example.com")
 ## Références du dépôt (post-refactoring)
 - **Dépendances source** : `pyproject.toml` (`[project.dependencies]`)
 - **Dépendances figées prod** : `requirements.txt` (versions actuelles: Pillow 11.3.0, qrcode 8.2)
-- **Point d'entrée** : `main.py` (script console: `2fa-export`) - CLI enrichie
+- **Point d'entrée** : `main.py` (script console: `2fa-exporter`) - CLI enrichie
 - **Environnement local** : `.venv`
 - **Modules principaux** :
   - `OTPTools/` (core enrichi avec Factory)

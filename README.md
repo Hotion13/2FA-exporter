@@ -34,7 +34,7 @@ uv sync
 ### CLI de base
 
 ```bash
-uv run 2fa-export <backup_file> <dossier_sortie>
+uv run 2fa-exporter <backup_file> <dossier_sortie>
 ```
 
 Ou directement avec Python:
@@ -47,13 +47,13 @@ uv run python main.py <backup_file> <dossier_sortie>
 
 ```bash
 # Lister les entrées sans générer de QR codes
-uv run 2fa-export backup.2fas --list-only
+uv run 2fa-exporter backup.2fas --list-only
 
 # Mode verbeux avec détails
-uv run 2fa-export backup.2fas ./qrcodes --verbose
+uv run 2fa-exporter backup.2fas ./qrcodes --verbose
 
 # Forcer le format 2FAS (bypass auto-détection)
-uv run 2fa-export backup.zip ./qrcodes --format 2fas
+uv run 2fa-exporter backup.zip ./qrcodes --format 2fas
 
 # Aide complète
 uv run python main.py --help
@@ -69,13 +69,13 @@ uv run python main.py --help
 
 ```bash
 # Export standard
-uv run 2fa-export ~/Downloads/2fas-backup.json ./qrcodes
+uv run 2fa-exporter ~/Downloads/2fas-backup.json ./qrcodes
 
 # Vérifier le contenu avant export
-uv run 2fa-export backup.2fas --list-only
+uv run 2fa-exporter backup.2fas --list-only
 
 # Export verbeux d'une archive ZIP
-uv run 2fa-export backup.zip ./exports --verbose
+uv run 2fa-exporter backup.zip ./exports --verbose
 ```
 
 ### Exemple fourni
@@ -84,7 +84,7 @@ Un backup de démonstration est disponible dans `exemple/2fas-backup-20250915150
 Vous pouvez inspecter son contenu sans générer de QR codes:
 
 ```bash
-uv run 2fa-export exemple/2fas-backup-20250915150420.2fas --list-only
+uv run 2fa-exporter exemple/2fas-backup-20250915150420.2fas --list-only
 ```
 
 La commande affiche le nombre total d'entrées TOTP/HOTP détectées avec leurs labels.

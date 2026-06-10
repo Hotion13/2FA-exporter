@@ -9,6 +9,10 @@ Exporte des QR codes OTP (PNG) à partir de sauvegardes 2FA (2FAS, etc.).
 - **Génération QR codes** : Un fichier PNG par service avec noms sécurisés
 - **CLI enrichie** : Options verbose, liste des entrées, choix de format
 
+> ⚠️ **Sécurité** : les PNG générés contiennent vos secrets 2FA **en clair**.
+> Stockez-les dans un dossier chiffré, ne les synchronisez pas vers un cloud,
+> et supprimez-les après usage.
+
 ## Prérequis
 
 - `uv` (Astral) installé et disponible dans le PATH (`uv --version`)

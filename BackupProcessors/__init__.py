@@ -32,6 +32,10 @@ from .exceptions import (
     BackupProcessorError,
     UnsupportedFormatError,
     CorruptedBackupError,
+    PasswordError,
+    PasswordRequiredError,
+    PasswordCancelledError,
+    InvalidPasswordError,
 )
 from .base import BaseBackupProcessor
 from .twofas import TwoFASProcessor
@@ -101,6 +105,10 @@ __all__ = [
     "BackupProcessorError",
     "UnsupportedFormatError",
     "CorruptedBackupError",
+    "PasswordError",
+    "PasswordRequiredError",
+    "PasswordCancelledError",
+    "InvalidPasswordError",
     # Base interface
     "BaseBackupProcessor",
     # Specialized processors

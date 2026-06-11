@@ -9,6 +9,7 @@ from typing import List, Union
 from BackupProcessors import (
     BackupProcessorFactory,
     UnsupportedFormatError,
+    PasswordError,
     TwoFASProcessor,
 )
 from OTPTools import TOTPEntry, HOTPEntry
@@ -192,6 +193,9 @@ Examples:
 
     except UnsupportedFormatError as e:
         logging.error(f"❌ Unsupported backup format: {e}")
+        sys.exit(1)
+    except PasswordError as e:
+        logging.error(f"❌ {e}")
         sys.exit(1)
     except Exception as e:
         logging.error(f"❌ An unexpected error occurred: {e}")

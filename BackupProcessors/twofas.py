@@ -21,7 +21,14 @@ from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from .base import BaseBackupProcessor
-from .exceptions import UnsupportedFormatError, CorruptedBackupError
+from .exceptions import (
+    UnsupportedFormatError,
+    CorruptedBackupError,
+    PasswordError,
+    PasswordRequiredError,
+    PasswordCancelledError,
+    InvalidPasswordError,
+)
 from OTPTools import TOTPEntry, HOTPEntry
 from OTPTools.factory import OTPFactory
 from OTPTools.exceptions import OTPError, ParseError
@@ -120,9 +127,7 @@ class TwoFASProcessor(BaseBackupProcessor):
             if path.suffix.lower() == ".zip":
                 return self._process_zip_backup(path)
             return self._process_json_backup(path)
-        except UnsupportedFormatError:
-            raise
-        except CorruptedBackupError:
+        except (UnsupportedFormatError, CorruptedBackupError, PasswordError):
             raise
         except Exception as e:
             raise CorruptedBackupError(file_path, str(e))
@@ -257,9 +262,7 @@ class TwoFASProcessor(BaseBackupProcessor):
                 attempts += 1
 
                 if attempts >= self._MAX_PASSWORD_ATTEMPTS:
-                    raise CorruptedBackupError(
-                        source, "Invalid password for the 2FAS backup"
-                    )
+                    raise InvalidPasswordError(source)
 
                 password = self._prompt_for_password(attempts, source)
 
@@ -271,10 +274,7 @@ class TwoFASProcessor(BaseBackupProcessor):
     def _prompt_for_password(self, attempt: int, source: str) -> str:
         """Prompt the user for the password, handling cancellation."""
         if not sys.stdin.isatty():
-            raise CorruptedBackupError(
-                source,
-                "Password required for this encrypted backup (interactive run only).",
-            )
+            raise PasswordRequiredError(source)
 
         prompt = (
             "2FAS backup password: "
@@ -285,9 +285,7 @@ class TwoFASProcessor(BaseBackupProcessor):
         try:
             return getpass(prompt)
         except (EOFError, KeyboardInterrupt):
-            raise CorruptedBackupError(
-                source, "Password input cancelled by the user"
-            )
+            raise PasswordCancelledError(source)
 
     def _decrypt_encrypted_blob(
         self,

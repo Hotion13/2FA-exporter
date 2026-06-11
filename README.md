@@ -1,98 +1,190 @@
-# 2FA Exporter — 2FAS → QR codes
+<div align="center">
 
-Exporte des QR codes OTP (PNG) à partir de sauvegardes 2FA (2FAS, etc.).
+# 🔐 2FA Exporter
 
-## Aperçu
+**Export your OTP secrets from 2FAS backups into scannable QR codes.**
 
-- **Auto-détection de format** : Support 2FAS (.2fas, .json, .zip)
-- **Sauvegardes chiffrées** : Déchiffre les exports 2FAS protégés par mot de passe
-- **Génération QR codes** : Un fichier PNG par service avec noms sécurisés
-- **CLI enrichie** : Options verbose, liste des entrées, choix de format
+Turn a `.2fas`, `.json`, or `.zip` backup — encrypted or not — into one clean PNG QR code per service, ready to re-import into any authenticator app.
 
-> ⚠️ **Sécurité** : les PNG générés contiennent vos secrets 2FA **en clair**.
-> Stockez-les dans un dossier chiffré, ne les synchronisez pas vers un cloud,
-> et supprimez-les après usage.
+[![Python](https://img.shields.io/badge/python-%3E%3D3.8-blue.svg)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Managed with uv](https://img.shields.io/badge/managed%20with-uv-261230.svg)](https://github.com/astral-sh/uv)
+[![Version](https://img.shields.io/badge/version-1.0.1-orange.svg)](pyproject.toml)
 
-## Prérequis
+</div>
 
-- `uv` (Astral) installé et disponible dans le PATH (`uv --version`)
-- Python installé
+---
 
-## Installation
+## ✨ Features
 
-Dans la racine du projet:
+- **🔍 Automatic format detection** — handles 2FAS `.2fas`, `.json`, and `.zip` backups out of the box.
+- **🔓 Encrypted backup support** — decrypts password-protected 2FAS exports (PBKDF2 + AES-GCM).
+- **🖼️ One QR per service** — a clean PNG per entry, named `{issuer}_{account}.png` (sanitized, collision-free).
+- **⚙️ Rich CLI** — list entries, force a format, or run in verbose mode.
+- **📦 Standards-compliant** — emits standard `otpauth://` URLs (TOTP & HOTP) that import into any authenticator.
+
+---
+
+## ⚠️ Security Notice
+
+> The generated PNG files embed your 2FA secrets **in plaintext** (inside the QR code).
+>
+> - Store them in an **encrypted** folder.
+> - **Never** sync them to a cloud drive.
+> - **Delete** them immediately after re-importing.
+
+Treat the output exactly like you would treat the secrets themselves.
+
+---
+
+## 📋 Requirements
+
+- [`uv`](https://github.com/astral-sh/uv) (Astral) available on your `PATH` — verify with `uv --version`
+- Python `>= 3.8` (provisioned automatically by `uv`)
+
+This project is **`uv`-only**: no global installs, no bare `pip`, no manual `venv`.
+
+---
+
+## 📥 Get your backup first
+
+This tool reads a **2FAS backup file** — it does not pull from the app directly. In the 2FAS app: **Settings → Backup → Export**, then save the `.2fas` (or `.json`) file somewhere you can reach from your terminal. Encrypted (password-protected) exports work too.
+
+---
+
+## 🚀 Installation
+
+Pick the method that fits your needs.
+
+### Run without installing (`uvx`) — recommended for one-off use
+
+`uvx` runs the tool in a throwaway environment — nothing is installed into your project or your system.
 
 ```bash
-uv venv .venv
-uv pip install -e .
+uvx --from git+https://github.com/Hotion13/2FA-exporter 2fa-exporter backup.2fas ./qrcodes
 ```
 
-Alternative tout‑en‑un:
+### Install as a global command (`uv tool install`)
+
+Get a persistent `2fa-exporter` command on your `PATH` (isolated in its own environment, but globally available):
 
 ```bash
-uv sync
+uv tool install git+https://github.com/Hotion13/2FA-exporter
+
+# Then call it from anywhere
+2fa-exporter backup.2fas ./qrcodes
+
+# Uninstall when you're done
+uv tool uninstall 2fa-exporter
 ```
 
-## Utilisation
-
-### CLI de base
+### From source (for development)
 
 ```bash
-uv run 2fa-exporter <backup_file> <dossier_sortie>
+git clone https://github.com/Hotion13/2FA-exporter
+cd 2FA-exporter
+uv sync          # creates .venv and installs dependencies
 ```
 
-Ou directement avec Python:
+> **Which method?** For a one-off export prefer `uvx`. For the tool always on hand use `uv tool install` (global). Clone + `uv sync` only if you want to modify the code.
+
+---
+
+## 💡 Usage
+
+### Basic
+
+Run the command that matches how you installed it:
 
 ```bash
-uv run python main.py <backup_file> <dossier_sortie>
+# uvx (one-off, no install)
+uvx --from git+https://github.com/Hotion13/2FA-exporter 2fa-exporter <backup_file> <output_dir>
+
+# uv tool install (global command)
+2fa-exporter <backup_file> <output_dir>
+
+# from a cloned checkout
+uv run 2fa-exporter <backup_file> <output_dir>
 ```
 
-### Options avancées
+`output_dir` is **required** (except with `--list-only`) and is **created automatically**. A relative path like `./qrcodes` is resolved from your current directory. Each service is written to `<output_dir>/{issuer}_{account}.png`.
+
+### Options
 
 ```bash
-# Lister les entrées sans générer de QR codes
+# List entries without generating any QR codes
 uv run 2fa-exporter backup.2fas --list-only
 
-# Mode verbeux avec détails
+# Verbose mode (per-entry details)
 uv run 2fa-exporter backup.2fas ./qrcodes --verbose
 
-# Forcer le format 2FAS (bypass auto-détection)
+# Force the 2FAS format (skip auto-detection)
 uv run 2fa-exporter backup.zip ./qrcodes --format 2fas
 
-# Aide complète
-uv run python main.py --help
+# Full help
+uv run 2fa-exporter --help
 ```
 
-### Sauvegardes 2FAS chiffrées
-
-- Si le backup contient des données chiffrées, l'outil demande automatiquement le mot de passe
-- L'exécution doit être interactive. En mode non interactif, le traitement échoue
-- Les fichiers ZIP contenant plusieurs JSON chiffrés réutilisent le même mot de passe pendant la session
-
-### Exemples complets
+### Examples
 
 ```bash
-# Export standard
+# Standard export
 uv run 2fa-exporter ~/Downloads/2fas-backup.json ./qrcodes
 
-# Vérifier le contenu avant export
+# Inspect contents before exporting anything
 uv run 2fa-exporter backup.2fas --list-only
 
-# Export verbeux d'une archive ZIP
+# Verbose export from a ZIP archive
 uv run 2fa-exporter backup.zip ./exports --verbose
 ```
 
-### Exemple fourni
+---
 
-Un backup de démonstration est disponible dans `exemple/2fas-backup-20250915150420.2fas`.
-Vous pouvez inspecter son contenu sans générer de QR codes:
+## 🔓 Encrypted 2FAS Backups
 
-```bash
-uv run 2fa-exporter exemple/2fas-backup-20250915150420.2fas --list-only
+When a backup contains encrypted data, the tool prompts for the password automatically.
+
+- Run it in a **real terminal**. Don't pipe the password or run it in CI — non-interactive runs fail by design.
+- You get **3 password attempts**; after that the run aborts (just re-run to try again).
+- A validated password is **reused for the rest of the session** — handy for ZIP archives bundling multiple encrypted dumps.
+- Some 2FAS exports embed a direct AES key (`key` / `keyEncoded` field) instead. In that case the tool decrypts with it and **never asks for a password**.
+- Decryption uses **PBKDF2-HMAC-SHA256** (10,000 iterations) feeding **AES-GCM**, via the `cryptography` library.
+
+---
+
+## 🧩 How It Works
+
+```
+backup file
+   │
+   ▼
+BackupProcessorFactory ──▶ TwoFASProcessor      (raw extraction + decryption)
+                               │
+                               ▼
+                         OTPFactory             (standardized TOTP / HOTP objects)
+                               │
+                               ▼
+                          main.py               (renders otpauth:// → PNG QR codes)
 ```
 
-La commande affiche le nombre total d'entrées TOTP/HOTP détectées avec leurs labels.
+- **`BackupProcessors/`** — multi-format raw extraction (Strategy + Factory). Currently: full 2FAS support; Google Authenticator and Authy are planned.
+- **`OTPTools/`** — creation and validation of standardized OTP objects, `otpauth://` URL generation.
+- **`src/utils.py`** — safe filename generation (forbidden chars, Windows-reserved names, Unicode normalization).
 
-## Licence
+---
 
-MIT — voir `LICENSE`.
+## 🛠️ Development
+
+```bash
+uv sync                                   # install everything
+uv run python tests/test_refactoring.py   # run the test suite
+uv lock                                   # update the lockfile (commit it)
+```
+
+Dependencies live in `pyproject.toml` (`requirements.txt` is **generated** — never edited by hand).
+
+---
+
+## 📄 License
+
+[MIT](LICENSE) © contributors

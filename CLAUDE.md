@@ -43,7 +43,11 @@ Sortie : un PNG par service, nom assaini `{issuer_safe}_{account_safe}.png`.
 - Le processor détecte `servicesEncrypted` et demande le mot de passe via `getpass`.
 - Exécution **interactive obligatoire** (TTY). En non-interactif → `CorruptedBackupError`.
 - Le mot de passe validé est réutilisé pour les autres dumps de la même session (JSON / ZIP multi-dumps).
-- Dérivation : PBKDF2-HMAC-SHA256 (10 000 itérations) → AES-GCM (lib `cryptography`).
+- Dérivation : PBKDF2-HMAC-SHA256 (**10 000 itérations**, 32 bytes) → AES-GCM (lib `cryptography`).
+- **Voie alternative** : champ `key`/`keyEncoded` = clé AES directe (16/24/32 bytes) sans mot de passe ni PBKDF2.
+- **Tentatives max** : `_MAX_PASSWORD_ATTEMPTS = 3` (dans `TwoFASProcessor`).
+- Format du blob chiffré : `base64(ciphertext):base64(salt):base64(iv)` — 3 parties séparées par `:`.
+- **Couplage TTY bloquant** : `_prompt_for_password()` appelle `sys.stdin.isatty()` + `getpass()` directement → bloque toute interface non-tty (TUI, GUI). Refactor prévu : injection de callback `password_provider: Callable[[int], str | None]`.
 
 ## Architecture
 
@@ -86,8 +90,23 @@ Sortie : un PNG par service, nom assaini `{issuer_safe}_{account_safe}.png`.
 
 ## Hypothèses JSON 2FAS
 
-- Racine : `services` (liste) — ou `servicesEncrypted` (chiffré).
+- Racine : `services` (liste, alias accepté `entries`) — ou `servicesEncrypted` (chiffré).
 - Service : `secret` + objet `otp` avec au moins `tokenType`. Optionnels : `issuer` (fallback `name`), `digits` (6), `period` (30), `algorithm` (SHA1), `account` ("").
+
+## Contraintes de validation OTP
+
+- `digits` ∈ `{6, 7, 8}` (validé dans `OTPEntry._validate_common_params`)
+- `algorithm` ∈ `{SHA1, SHA256, SHA512}`
+- `period` (TOTP) : 15–300 secondes
+- `secret` : base32 valide obligatoire
+- `issuer` : non-vide obligatoire
+
+## Points de vigilance architecture
+
+- **Double parsing** : JSON parsé deux fois (`can_process()` puis `process_backup()`) → inefficace sur gros fichiers. Nuance ZIP : `can_process()` ne valide que jusqu'au premier JSON, alors que `process_backup()` traite tous les dumps.
+- **OTPConfig non câblé** : `EXPORT_FORMATS`, `DEFAULT_QR_SIZE`, `DEFAULT_QR_BORDER` existent dans `config.py` mais ne sont pas exposés en CLI. À brancher via `--export-format`, `--qr-size`, `--qr-border`.
+- **Formats prévus** (stubs) : Google Authenticator (`otpauth-migration://` protobuf), Authy — non implémentés.
+- **Interfaces cibles** : core extraction + callback password → CLI complète → TUI (Textual) → GUI (PySide6 ou FastAPI+HTMX).
 
 ## Dépendances
 

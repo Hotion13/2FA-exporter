@@ -35,7 +35,8 @@ def generate_qr_codes_from_entries(
         output_dir: Output directory for the QR code images
         verbose: Enable detailed logging
     """
-    os.makedirs(output_dir, exist_ok=True)
+    # PNGs hold plaintext OTP secrets: owner-only access
+    os.makedirs(output_dir, mode=0o700, exist_ok=True)
 
     success_count = 0
     error_count = 0
@@ -55,6 +56,11 @@ def generate_qr_codes_from_entries(
 
             with open(output_file, "wb") as f:
                 qr_img.save(f)
+
+            try:
+                os.chmod(output_file, 0o600)
+            except OSError:
+                pass  # not supported on some filesystems (e.g. Windows)
 
             success_count += 1
 
@@ -174,7 +180,7 @@ Examples:
 
         if not os.path.exists(args.destination_folder):
             try:
-                os.makedirs(args.destination_folder, exist_ok=True)
+                os.makedirs(args.destination_folder, mode=0o700, exist_ok=True)
                 if args.verbose:
                     logging.info(
                         f"📁 Destination folder created: {args.destination_folder}"

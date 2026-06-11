@@ -10,12 +10,14 @@ class OTPError(Exception):
 
 
 class InvalidSecretError(OTPError):
-    """Raised when the OTP secret is invalid."""
+    """Raised when the OTP secret is invalid.
+
+    Never embeds the secret value: these messages end up in logs.
+    """
 
     def __init__(self, secret: str, message: str = None):
-        self.secret = secret
         if message is None:
-            message = f"Invalid secret: '{secret}' is not valid base32"
+            message = "Invalid secret: not valid base32"
         super().__init__(message)
 
 

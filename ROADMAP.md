@@ -15,16 +15,16 @@ Sprints suggérés : S1 = C1·C2·H1·H3 · S2 = H2·H4·H5 · S3 = M1–M6 · S
 
 | Sévérité | Problème | Fichier:ligne | Réf plan |
 |---|---|---|---|
-| 🔴 CRITIQUE | `_cached_password` jamais effacé ; instance `TwoFASProcessor` partagée par la factory → mdp plaintext en mémoire toute la session, réutilisé silencieusement sur le fichier suivant | `twofas.py:47,215` / `__init__.py:53` | C1 + H2 |
-| 🔴 HAUTE | `except Exception` nu dans la boucle QR — erreurs avalées, exit code reste 0 même sur échecs partiels | `main.py:52–56` | H4 + H5 |
-| 🟠 MOYENNE | `_is_valid_2fas_format` accepte tout dict avec clé `"secret"` → faux positifs (JWT, secrets K8s…) | `twofas.py:84–99` | — |
+| 🔴 CRITIQUE | `_cached_password` jamais effacé ; instance `TwoFASProcessor` partagée par la factory → mdp plaintext en mémoire toute la session, réutilisé silencieusement sur le fichier suivant | `twofas.py:47,215` / `__init__.py:53` | C1 + H2 — **✅ corrigé 2026-06-11** |
+| 🔴 HAUTE | `except Exception` nu dans la boucle QR — erreurs avalées, exit code reste 0 même sur échecs partiels | `main.py:52–56` | H4 + H5 — **✅ exit code 2 sur échec partiel (2026-06-11)** |
+| 🟠 MOYENNE | `_is_valid_2fas_format` accepte tout dict avec clé `"secret"` → faux positifs (JWT, secrets K8s…) | `twofas.py:84–99` | **✅ corrigé 2026-06-11** (racines `services`/`entries`/`servicesEncrypted` uniquement) |
 | 🟠 MOYENNE | `_sanitize_string` ne remplace que `:` → `/ ? & @` subsistent, URLs `otpauth://` malformées possibles | `OTPTools/base.py:70` | — |
 | 🟡 FAIBLE | Double lecture : `can_process()` puis `process_backup()` reparsent le même fichier | `twofas.py:57,118` | M5 |
-| 🟡 FAIBLE | Collision silencieuse : même issuer+account → même PNG, écrasement sans avertissement | `main.py:44` | quick win |
+| 🟡 FAIBLE | Collision silencieuse : même issuer+account → même PNG, écrasement sans avertissement | `main.py:44` | **✅ corrigé 2026-06-11** (suffixe `_2`, `_3`…) |
 | 🟡 FAIBLE | `_process_zip_backup` sans déduplication → entrées dupliquées | `twofas.py:150–170` | — |
-| 🟡 FAIBLE | `example_usage()` en prod dans `__init__.py` | `BackupProcessors/__init__.py:120` | quick win |
+| 🟡 FAIBLE | `example_usage()` en prod dans `__init__.py` | `BackupProcessors/__init__.py:120` | **✅ retiré** |
 | 🟡 FAIBLE | Tests smoke-only, non-pytest, pas de couverture ZIP/chiffré/CLI | `tests/test_refactoring.py` | M1 |
-| ✏️ TRIVIAL | `import os` inutilisé | `src/utils.py:8` | quick win |
+| ✏️ TRIVIAL | `import os` inutilisé | `src/utils.py:8` | **✅ retiré** |
 
 **Posture sécurité** : la crypto est correcte (AES-GCM + PBKDF2 10k, longueurs clé validées). Le risque dominant est la **gestion des credentials** : mdp maître en plaintext sans expiry ni zeroing, réutilisé multi-fichiers. Correctif le plus impactant = C1.
 
@@ -32,7 +32,12 @@ Sprints suggérés : S1 = C1·C2·H1·H3 · S2 = H2·H4·H5 · S3 = M1–M6 · S
 
 ## CRITIQUE
 
-### C1 — Découpler `getpass()` de la logique métier
+### C1 — Découpler `getpass()` de la logique métier — **✅ Fait (2026-06-11)**
+
+Implémenté : `PasswordRequest` + `PasswordProvider` dans `BackupProcessors/base.py`,
+`process_backup(file_path, password_provider=None)`, `_cached_password` supprimé
+(cache local à l'appel pour les ZIP multi-dumps), fallback `getpass` si provider absent.
+
 `twofas.py` `_prompt_for_password()` : `getpass()` + `sys.stdin.isatty()` enfouis dans le processor → bloque TUI/GUI/tests/non-interactif, et alimente le bug `_cached_password`. Injecter un `PasswordProvider` via `process_backup()` ; supprimer `_cached_password` (l'appelant gère le cycle de vie de la credential).
 
 ```python
@@ -53,8 +58,8 @@ def process_backup(
 
 Fallback `getpass()` si `password_provider is None` (compat CLI). `PasswordRequest` (vs `Callable[[int], str]`) : une GUI a besoin du nom de fichier + statut d'échec. Succès : CLI inchangée sans `password_provider`.
 
-### C2 — Bug nom de commande
-`pyproject.toml` déclare `2fa-exporter`, des docs documentaient `2fa-export` (sans `r`). Aligner partout. `grep -r "2fa-export[^e]" .`. *(corrigé dans pyproject — vérifier les docs résiduelles.)*
+### C2 — Bug nom de commande — **✅ Fait**
+`pyproject.toml` déclare `2fa-exporter`, des docs documentaient `2fa-export` (sans `r`). Vérifié 2026-06-11 : `grep -r "2fa-export[^e]" .` → aucune occurrence résiduelle.
 
 ---
 
@@ -87,7 +92,11 @@ def export_qr_png(entries: list, output_dir: Path, qr_size: int = 10,
 def entries_to_dict(entries: list) -> list[dict]: ...
 ```
 
-### H2 — Sécurité fichiers + secrets en mémoire
+### H2 — Sécurité fichiers + secrets en mémoire — **🔶 Partiel (2026-06-11)**
+Fait : dossier `0o700`, PNG `0o600` (try/except OSError), secret retiré du message
+`InvalidSecretError` (fuyait dans les logs via le warning par service). Reste :
+`--no-write`/`--stdout`, `--cleanup`, zeroing mémoire, tempfile pour déchiffrement.
+
 PNG générés = secrets OTP en clair sur disque.
 
 ```python
@@ -97,7 +106,11 @@ os.chmod(output_file, 0o600)        # envelopper dans try/except OSError (Window
 
 Exposition disque (thumbnails OS, indexation Spotlight/Tracker, sync cloud, Time Machine) → fournir `--no-write`/`--stdout` (URL otpauth sans écrire), option `--cleanup`. Secrets en mémoire : ne jamais logguer les URLs `otpauth://` complètes ; ne pas capturer le mdp dans stack traces ; nettoyer les variables dans `finally` ; déchiffrement via `tempfile.NamedTemporaryFile(delete=True)`.
 
-### H3 — Hiérarchie d'exceptions *(avant H4 — conditionne JSON + exit codes)*
+### H3 — Hiérarchie d'exceptions — **✅ Fait (2026-06-11)**
+
+Implémenté en conservant les noms existants : `PasswordError` →
+`PasswordRequiredError` / `PasswordCancelledError` / `InvalidPasswordError`
+(`BackupProcessors/exceptions.py`). Sketch d'origine :
 ```python
 class BackupError(Exception): ...
 class UnsupportedBackupFormat(BackupError): ...
@@ -108,10 +121,12 @@ class InvalidPassword(BackupError): ...
 ```
 Remplacer les `raise` à string littérale. Les exit codes de `main.py` s'appuient sur le typage, pas sur du parsing de message.
 
-### H4 — Séparation stdout / stderr
+### H4 — Séparation stdout / stderr — **✅ Fait de facto**
 Données pures (`--json`, `--list-only`) → **stdout**. Logs/warnings/erreurs → **stderr**. Prompt mdp → TTY direct, jamais stdout. Prérequis pour `--json | jq`.
+*(Constat 2026-06-11 : `logging` sort déjà sur stderr, `print` data sur stdout — rien à changer tant que `--json` n'existe pas.)*
 
-### H5 — Schéma JSON + exit codes stables *(figer avant d'exposer `--json`)*
+### H5 — Schéma JSON + exit codes stables *(figer avant d'exposer `--json`)* — **🔶 Exit codes faits (2026-06-11)**
+Exit codes implémentés : `0` / `1` / `2` (échec partiel QR). Schéma JSON restant (avec `--json`, voir M6).
 ```json
 { "version": 1,
   "entries": [ { "issuer": "GitHub", "account": "user@example.com", "type": "totp",
@@ -158,10 +173,11 @@ Exit codes : `0` succès complet · `1` erreur fatale (backup illisible, mdp ann
 
 ## Quick wins (< 30 min)
 
-- [ ] Supprimer `import os` inutile — `src/utils.py:8`
-- [ ] Sortir `example_usage()` de `BackupProcessors/__init__.py`
-- [ ] Suffixe compteur `_2`, `_3`… si le PNG existe déjà (collision) — `main.py:44`
-- [ ] Restreindre `_is_valid_2fas_format` → `"services" in data or "servicesEncrypted" in data` — `twofas.py:84–99`
+- [x] Supprimer `import os` inutile — `src/utils.py:8`
+- [x] Sortir `example_usage()` de `BackupProcessors/__init__.py`
+- [x] Suffixe compteur `_2`, `_3`… si le PNG existe déjà (collision) — `main.py:44`
+- [x] Restreindre `_is_valid_2fas_format` → `"services" in data or "servicesEncrypted" in data` — `twofas.py:84–99`
+- [x] `--version` dynamique via `importlib.metadata` (était figé à 1.0.2) — `main.py`
 - [x] Retirer `twofas_lib` de `[tool.setuptools]`, déclarer uniquement les modules présents
 - [x] Remplacer `exit()` par `sys.exit()` — `main.py`
 

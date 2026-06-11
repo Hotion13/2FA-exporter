@@ -36,18 +36,28 @@ uv run 2fa-exporter backup.zip  ./qrcodes --format 2fas # forcer le format
 uv run python main.py --help                           # aide complète
 ```
 
-Sortie : un PNG par service, nom assaini `{issuer_safe}_{account_safe}.png`.
+Sortie : un PNG par service, nom assaini `{issuer_safe}_{account_safe}.png`
+(suffixe `_2`, `_3`… en cas de collision). Dossier créé en `0o700`, PNG en `0o600`.
+
+Exit codes : `0` succès complet · `1` erreur fatale (backup illisible, mdp
+invalide/annulé) · `2` succès partiel (certains QR ont échoué).
 
 ## Sauvegardes 2FAS chiffrées
 
-- Le processor détecte `servicesEncrypted` et demande le mot de passe via `getpass`.
-- Exécution **interactive obligatoire** (TTY). En non-interactif → `CorruptedBackupError`.
-- Le mot de passe validé est réutilisé pour les autres dumps de la même session (JSON / ZIP multi-dumps).
+- Le processor détecte `servicesEncrypted` et demande le mot de passe via un
+  callback injecté : `process_backup(file_path, password_provider=None)` avec
+  `PasswordProvider = Callable[[PasswordRequest], Optional[str]]` (retour `None`
+  = annulation → `PasswordCancelledError`). Définitions : `BackupProcessors/base.py`.
+- Sans provider, fallback interactif `getpass` (TTY). En non-interactif sans
+  provider → `PasswordRequiredError`.
+- Le mot de passe validé est réutilisé **au sein d'un même appel** `process_backup`
+  (ZIP multi-dumps) puis jeté — aucun cache d'instance.
 - Dérivation : PBKDF2-HMAC-SHA256 (**10 000 itérations**, 32 bytes) → AES-GCM (lib `cryptography`).
 - **Voie alternative** : champ `key`/`keyEncoded` = clé AES directe (16/24/32 bytes) sans mot de passe ni PBKDF2.
 - **Tentatives max** : `_MAX_PASSWORD_ATTEMPTS = 3` (dans `TwoFASProcessor`).
 - Format du blob chiffré : `base64(ciphertext):base64(salt):base64(iv)` — 3 parties séparées par `:`.
-- **Couplage TTY bloquant** : `_prompt_for_password()` appelle `sys.stdin.isatty()` + `getpass()` directement → bloque toute interface non-tty (TUI, GUI). Refactor prévu : injection de callback `password_provider: Callable[[int], str | None]`.
+- Exceptions password typées (`BackupProcessors/exceptions.py`) : `PasswordError`
+  → `PasswordRequiredError` / `PasswordCancelledError` / `InvalidPasswordError`.
 
 ## Architecture
 

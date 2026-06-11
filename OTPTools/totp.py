@@ -1,5 +1,5 @@
 """
-Implémentation de TOTP (Time-based One-Time Password).
+TOTP (Time-based One-Time Password) implementation.
 """
 
 from typing import Optional, Dict, Any
@@ -11,13 +11,13 @@ from .exceptions import InvalidParameterError
 
 class TOTPEntry(OTPEntry):
     """
-    Entrée TOTP (Time-based One-Time Password).
+    TOTP (Time-based One-Time Password) entry.
 
-    Génère des codes OTP basés sur l'horloge système avec une période définie.
-    Les codes changent automatiquement toutes les X secondes (par défaut 30).
+    Generates OTP codes based on the system clock with a fixed period.
+    Codes change automatically every X seconds (30 by default).
 
     Attributes:
-        period: Période de renouvellement en secondes (défaut: 30)
+        period: Renewal period in seconds (default: 30)
 
     Example:
         >>> totp = TOTPEntry(
@@ -40,18 +40,18 @@ class TOTPEntry(OTPEntry):
         algorithm: str = OTPConfig.DEFAULT_ALGORITHM,
     ):
         """
-        Initialise une entrée TOTP.
+        Initialize a TOTP entry.
 
         Args:
-            issuer: Nom du service émetteur
-            secret: Secret base32
-            account: Identifiant du compte (optionnel)
-            digits: Nombre de chiffres du code (6, 7 ou 8)
-            period: Période de renouvellement en secondes
-            algorithm: Algorithme de hachage (SHA1, SHA256, SHA512)
+            issuer: Name of the issuing service
+            secret: Base32 secret
+            account: Account identifier (optional)
+            digits: Number of digits in the code (6, 7 or 8)
+            period: Renewal period in seconds
+            algorithm: Hash algorithm (SHA1, SHA256, SHA512)
 
         Raises:
-            InvalidParameterError: Si la période est hors limites
+            InvalidParameterError: If the period is out of bounds
         """
         self.period = int(period)
         super().__init__(issuer, secret, account, digits, algorithm)
@@ -59,48 +59,48 @@ class TOTPEntry(OTPEntry):
 
     def _validate_totp_params(self) -> None:
         """
-        Valide les paramètres spécifiques au TOTP.
+        Validate TOTP-specific parameters.
 
         Raises:
-            InvalidParameterError: Si la période est invalide
+            InvalidParameterError: If the period is invalid
         """
         if self.period < OTPConfig.MIN_PERIOD:
             raise InvalidParameterError(
                 "period",
                 self.period,
-                f"La période doit être au minimum {OTPConfig.MIN_PERIOD} secondes",
+                f"Period must be at least {OTPConfig.MIN_PERIOD} seconds",
             )
 
         if self.period > OTPConfig.MAX_PERIOD:
             raise InvalidParameterError(
                 "period",
                 self.period,
-                f"La période doit être au maximum {OTPConfig.MAX_PERIOD} secondes",
+                f"Period must be at most {OTPConfig.MAX_PERIOD} seconds",
             )
 
     @property
     def token_type(self) -> str:
-        """Retourne le type de token: 'totp'."""
+        """Return the token type: 'totp'."""
         return "totp"
 
     def _get_specific_params(self) -> Dict[str, str]:
         """
-        Retourne les paramètres spécifiques au TOTP.
+        Return TOTP-specific parameters.
 
         Returns:
-            Dictionnaire avec la période si différente de 30
+            Dictionary with the period when it differs from the default
         """
-        # Ne pas inclure la période si c'est la valeur par défaut (30)
+        # Omit the period when it is the default value (30)
         if self.period != OTPConfig.DEFAULT_PERIOD:
             return {"period": str(self.period)}
         return {}
 
     def to_dict(self) -> Dict[str, Any]:
         """
-        Convertit l'entrée TOTP en dictionnaire.
+        Convert the TOTP entry to a dictionary.
 
         Returns:
-            Dictionnaire contenant tous les paramètres TOTP
+            Dictionary containing all TOTP parameters
         """
         return {
             "issuer": self.issuer,
@@ -114,9 +114,9 @@ class TOTPEntry(OTPEntry):
 
     def is_default_period(self) -> bool:
         """
-        Vérifie si la période est celle par défaut.
+        Check whether the period is the default one.
 
         Returns:
-            True si période = 30 secondes
+            True if period == 30 seconds
         """
         return self.period == OTPConfig.DEFAULT_PERIOD

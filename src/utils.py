@@ -1,48 +1,47 @@
 """
-Utilitaires pour l'export de QR codes 2FAS.
+Utilities for the 2FAS QR code export.
 
-Ce module contient les fonctions utilitaires communes utilisées
-pour la génération et la sauvegarde des QR codes.
+Common helper functions used to generate and save QR code files.
 """
 
-import os
 import re
 import unicodedata
 
 
 def sanitize_filename(filename):
     """
-    Assainit un nom de fichier en supprimant/remplaçant les caractères problématiques.
+    Sanitize a filename by removing/replacing problematic characters.
 
     Args:
-        filename (str): Nom de fichier à assainir
+        filename (str): Filename to sanitize
 
     Returns:
-        str: Nom de fichier assaini et sécurisé
+        str: Sanitized, safe filename
     """
     if not filename:
         return "unknown"
 
-    # Normalise les caractères Unicode (ex: é -> e)
+    # Normalize Unicode characters (e.g. é -> e)
     filename = unicodedata.normalize("NFKD", filename)
     filename = filename.encode("ascii", "ignore").decode("ascii")
 
-    # Remplace les caractères interdits par des tirets
+    # Replace forbidden characters with dashes
     # Windows: < > : " | ? * \ /
     # Unix: /
     filename = re.sub(r'[<>:"/\\|?*]', "-", filename)
 
-    # Supprime les espaces en début/fin et remplace les espaces multiples
+    # Trim and collapse whitespace into underscores
     filename = re.sub(r"\s+", "_", filename.strip())
 
-    # Supprime les points en début/fin (problématique sur Windows)
+    # Strip leading/trailing dots (problematic on Windows)
     filename = filename.strip(".")
 
-    # Limite la longueur (255 caractères max sur la plupart des systèmes)
-    if len(filename) > 200:  # Garde de la marge pour l'extension
+    # Cap the length (most filesystems allow 255 chars max);
+    # keep some headroom for the extension
+    if len(filename) > 200:
         filename = filename[:200]
 
-    # Évite les noms réservés Windows
+    # Avoid Windows reserved names
     reserved_names = {
         "CON",
         "PRN",
@@ -71,7 +70,7 @@ def sanitize_filename(filename):
     if filename.upper() in reserved_names:
         filename = f"_{filename}"
 
-    # Si le nom est vide après nettoyage
+    # Fallback when nothing survives the cleanup
     if not filename:
         filename = "sanitized"
 
@@ -80,19 +79,17 @@ def sanitize_filename(filename):
 
 def generate_safe_filename(issuer, account):
     """
-    Génère un nom de fichier sécurisé pour un QR code OTP.
+    Generate a safe filename for an OTP QR code.
 
     Args:
-        issuer (str): Émetteur du service
-        account (str): Compte utilisateur (peut être None/vide)
+        issuer (str): Service issuer
+        account (str): User account (may be None/empty)
 
     Returns:
-        str: Nom de fichier sécurisé sans extension
+        str: Safe filename without extension
     """
-    # Assainit l'issuer
     safe_issuer = sanitize_filename(issuer)
 
-    # Gère le compte (None, vide, ou valide)
     if account and account.strip():
         safe_account = sanitize_filename(account)
         return f"{safe_issuer}_{safe_account}"

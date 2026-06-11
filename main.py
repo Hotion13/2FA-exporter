@@ -18,14 +18,13 @@ def generate_qr_codes_from_entries(
     entries: List[Union[TOTPEntry, HOTPEntry]], output_dir: str, verbose: bool = False
 ):
     """
-    Génère les QR codes pour une liste d'entrées OTP.
+    Generate QR codes for a list of OTP entries.
 
     Args:
-        entries: Liste d'objets OTPEntry (TOTP ou HOTP)
-        output_dir: Répertoire de sortie pour les QR codes
-        verbose: Affichage détaillé des opérations
+        entries: List of OTPEntry objects (TOTP or HOTP)
+        output_dir: Output directory for the QR code images
+        verbose: Enable detailed logging
     """
-    # Créer le dossier de sortie
     os.makedirs(output_dir, exist_ok=True)
 
     success_count = 0
@@ -33,47 +32,41 @@ def generate_qr_codes_from_entries(
 
     for entry in entries:
         try:
-            # Générer le QR code
             qr_img = qrcode.make(entry.otpauth)
 
-            # Générer le nom de fichier sécurisé
             safe_filename = generate_safe_filename(entry.issuer, entry.account)
             output_file = os.path.join(output_dir, f"{safe_filename}.png")
 
-            # Sauvegarder l'image
             with open(output_file, "wb") as f:
                 qr_img.save(f)
 
             success_count += 1
 
             if verbose:
-                logging.info(f"✅ QR code pour {entry.label} sauvegardé: {output_file}")
+                logging.info(f"✅ QR code for {entry.label} saved: {output_file}")
 
         except Exception as e:
             error_count += 1
-            logging.error(
-                f"❌ Erreur lors de la génération du QR code pour {entry.label}: {e}"
-            )
+            logging.error(f"❌ Failed to generate QR code for {entry.label}: {e}")
 
-    # Résumé final
     total = len(entries)
-    logging.info(f"📊 Résumé: {success_count}/{total} QR codes générés avec succès")
+    logging.info(f"📊 Summary: {success_count}/{total} QR codes generated successfully")
     if error_count > 0:
-        logging.warning(f"⚠️  {error_count} erreurs rencontrées")
+        logging.warning(f"⚠️  {error_count} errors encountered")
 
 
 def list_entries(entries: List[Union[TOTPEntry, HOTPEntry]]):
     """
-    Affiche la liste des entrées OTP trouvées.
+    Print the list of OTP entries found in the backup.
 
     Args:
-        entries: Liste d'objets OTPEntry (TOTP ou HOTP)
+        entries: List of OTPEntry objects (TOTP or HOTP)
     """
     if not entries:
-        print("Aucune entrée OTP trouvée dans le backup.")
+        print("No OTP entries found in the backup.")
         return
 
-    print(f"\n📱 {len(entries)} entrée(s) OTP trouvée(s):")
+    print(f"\n📱 {len(entries)} OTP entries found:")
     print("-" * 50)
 
     for i, entry in enumerate(entries, 1):
@@ -129,17 +122,15 @@ Examples:
 
     args = parser.parse_args()
 
-    # Configuration du logging
     log_level = logging.DEBUG if args.verbose else logging.INFO
     logging.basicConfig(level=log_level, format="%(levelname)s: %(message)s")
 
-    # Vérification de l'existence du fichier source
     if not os.path.isfile(args.backup_file):
         logging.error(f"❌ Source file '{args.backup_file}' does not exist.")
         sys.exit(1)
 
     try:
-        # Choisir le processor selon le format
+        # Pick the processor according to the requested format
         if args.format == "2fas":
             processor = TwoFASProcessor()
             if not processor.can_process(args.backup_file):
@@ -153,14 +144,12 @@ Examples:
             entries = factory.process_backup(args.backup_file)
 
         if args.verbose:
-            logging.info(f"🔍 {len(entries)} entrée(s) OTP trouvée(s) dans le backup")
+            logging.info(f"🔍 {len(entries)} OTP entries found in the backup")
 
-        # Mode liste uniquement
         if args.list_only:
             list_entries(entries)
             return
 
-        # Vérification du dossier de destination
         if not args.destination_folder:
             logging.error(
                 "❌ Destination folder is required when not using --list-only"
@@ -172,23 +161,22 @@ Examples:
                 os.makedirs(args.destination_folder, exist_ok=True)
                 if args.verbose:
                     logging.info(
-                        f"📁 Dossier de destination créé: {args.destination_folder}"
+                        f"📁 Destination folder created: {args.destination_folder}"
                     )
             except Exception as e:
                 logging.error(f"❌ Failed to create destination directory: {e}")
                 sys.exit(1)
 
-        # Génération des QR codes
         if entries:
-            logging.info(f"🚀 Génération des QR codes dans {args.destination_folder}")
+            logging.info(f"🚀 Generating QR codes in {args.destination_folder}")
             generate_qr_codes_from_entries(
                 entries, args.destination_folder, args.verbose
             )
         else:
-            logging.warning("⚠️  Aucune entrée OTP valide trouvée dans le backup")
+            logging.warning("⚠️  No valid OTP entries found in the backup")
 
     except UnsupportedFormatError as e:
-        logging.error(f"❌ Format de backup non supporté: {e}")
+        logging.error(f"❌ Unsupported backup format: {e}")
         sys.exit(1)
     except Exception as e:
         logging.error(f"❌ An unexpected error occurred: {e}")

@@ -1,5 +1,5 @@
 """
-Classe de base abstraite pour les entrées OTP.
+Abstract base class for OTP entries.
 """
 
 import base64
@@ -14,21 +14,21 @@ from .exceptions import InvalidSecretError, InvalidParameterError
 
 class OTPEntry(ABC):
     """
-    Classe abstraite de base pour les entrées OTP.
+    Abstract base class for OTP entries.
 
-    Cette classe définit l'interface commune et les méthodes partagées
-    pour tous les types de tokens OTP (TOTP et HOTP).
+    Defines the common interface and shared methods for all OTP token
+    types (TOTP and HOTP).
 
     Attributes:
-        issuer: L'émetteur du token (ex: "Google", "GitHub")
-        secret: Le secret partagé encodé en base32
-        account: Le compte utilisateur (email ou username)
-        digits: Nombre de chiffres dans le code OTP (6, 7 ou 8)
-        algorithm: Algorithme de hachage (SHA1, SHA256, SHA512)
+        issuer: Token issuer (e.g. "Google", "GitHub")
+        secret: Base32-encoded shared secret
+        account: User account (email or username)
+        digits: Number of digits in the OTP code (6, 7 or 8)
+        algorithm: Hash algorithm (SHA1, SHA256, SHA512)
 
     Raises:
-        InvalidSecretError: Si le secret n'est pas un base32 valide
-        InvalidParameterError: Si un paramètre est invalide
+        InvalidSecretError: If the secret is not valid base32
+        InvalidParameterError: If a parameter is invalid
     """
 
     def __init__(
@@ -40,14 +40,14 @@ class OTPEntry(ABC):
         algorithm: str = OTPConfig.DEFAULT_ALGORITHM,
     ):
         """
-        Initialise une entrée OTP.
+        Initialize an OTP entry.
 
         Args:
-            issuer: Nom du service émetteur
-            secret: Secret base32
-            account: Identifiant du compte (optionnel)
-            digits: Nombre de chiffres du code
-            algorithm: Algorithme de hachage
+            issuer: Name of the issuing service
+            secret: Base32 secret
+            account: Account identifier (optional)
+            digits: Number of digits in the code
+            algorithm: Hash algorithm
         """
         self.issuer = self._sanitize_string(issuer)
         self.secret = self._normalize_secret(secret)
@@ -61,81 +61,76 @@ class OTPEntry(ABC):
     @staticmethod
     def _sanitize_string(value: str) -> str:
         """
-        Nettoie une chaîne pour l'utilisation dans otpauth.
+        Clean a string for use in an otpauth URL.
 
         Args:
-            value: Chaîne à nettoyer
+            value: String to clean
 
         Returns:
-            Chaîne nettoyée sans caractères problématiques
+            Cleaned string without problematic characters
         """
         if not value:
             return value
-        # Supprime les caractères problématiques
+        # ":" is the label separator in otpauth URLs
         return value.strip().replace(":", "-")
 
     @staticmethod
     def _normalize_secret(secret: str) -> str:
         """
-        Normalise le secret en supprimant les espaces et en majuscules.
+        Normalize the secret: strip spaces/dashes, uppercase.
 
         Args:
-            secret: Secret à normaliser
+            secret: Secret to normalize
 
         Returns:
-            Secret normalisé en base32
+            Normalized base32 secret
         """
         if not secret:
             return secret
-        # Supprime espaces et tirets, met en majuscules
         return secret.upper().replace(" ", "").replace("-", "")
 
     def _validate_common_params(self) -> None:
         """
-        Valide les paramètres communs à tous les types OTP.
+        Validate parameters common to all OTP types.
 
         Raises:
-            InvalidSecretError: Si le secret est invalide
-            InvalidParameterError: Si un paramètre est invalide
+            InvalidSecretError: If the secret is invalid
+            InvalidParameterError: If a parameter is invalid
         """
-        # Validation du secret
         if not self.secret:
-            raise InvalidSecretError("", "Le secret ne peut pas être vide")
+            raise InvalidSecretError("", "Secret cannot be empty")
 
         if not self._is_valid_base32(self.secret):
             raise InvalidSecretError(self.secret)
 
-        # Validation de l'issuer
         if not self.issuer:
             raise InvalidParameterError(
-                "issuer", self.issuer, "L'émetteur (issuer) ne peut pas être vide"
+                "issuer", self.issuer, "Issuer cannot be empty"
             )
 
-        # Validation des digits
         if self.digits not in OTPConfig.VALID_DIGITS:
             raise InvalidParameterError(
                 "digits",
                 self.digits,
-                f"Le nombre de digits doit être dans {OTPConfig.VALID_DIGITS}",
+                f"Number of digits must be one of {OTPConfig.VALID_DIGITS}",
             )
 
-        # Validation de l'algorithme
         if self.algorithm not in OTPConfig.VALID_ALGORITHMS:
             raise InvalidParameterError(
                 "algorithm",
                 self.algorithm,
-                f"L'algorithme doit être dans {OTPConfig.VALID_ALGORITHMS}",
+                f"Algorithm must be one of {OTPConfig.VALID_ALGORITHMS}",
             )
 
     def _is_valid_base32(self, secret: str) -> bool:
         """
-        Vérifie si le secret est un base32 valide.
+        Check whether the secret is valid base32.
 
         Args:
-            secret: Secret à vérifier
+            secret: Secret to check
 
         Returns:
-            True si le secret est valide, False sinon
+            True if the secret is valid, False otherwise
         """
         # Base32 alphabet (RFC 4648)
         base32_pattern = re.compile(r"^[A-Z2-7]+=*$")
@@ -143,9 +138,8 @@ class OTPEntry(ABC):
         if not base32_pattern.match(secret):
             return False
 
-        # Vérification du padding
         try:
-            # Ajoute le padding si nécessaire
+            # Add padding if needed before decoding
             padding = (8 - len(secret) % 8) % 8
             padded_secret = secret + "=" * padding
             base64.b32decode(padded_secret)
@@ -155,10 +149,10 @@ class OTPEntry(ABC):
 
     def _generate_label(self) -> str:
         """
-        Génère le label pour l'URL otpauth.
+        Build the label for the otpauth URL.
 
         Returns:
-            Label formaté "issuer:account" ou juste "issuer"
+            Label formatted as "issuer:account", or just "issuer"
         """
         if self.account:
             return f"{self.issuer}:{self.account}"
@@ -166,34 +160,34 @@ class OTPEntry(ABC):
 
     @property
     def label(self) -> str:
-        """Retourne le label formaté."""
+        """Return the formatted label."""
         return self._label
 
     @property
     @abstractmethod
     def token_type(self) -> str:
-        """Type de token (totp ou hotp)."""
+        """Token type ("totp" or "hotp")."""
         pass
 
     @abstractmethod
     def _get_specific_params(self) -> Dict[str, str]:
-        """Retourne les paramètres spécifiques au type d'OTP."""
+        """Return the parameters specific to this OTP type."""
         pass
 
     @abstractmethod
     def to_dict(self) -> Dict[str, Any]:
-        """Convertit l'entrée OTP en dictionnaire."""
+        """Convert the OTP entry to a dictionary."""
         pass
 
     @property
     def otpauth(self) -> str:
         """
-        Génère l'URL otpauth complète pour créer un QR code.
+        Build the full otpauth URL used to create a QR code.
 
         Format: otpauth://TYPE/LABEL?PARAMS
 
         Returns:
-            URL formatée pour génération de QR code
+            URL formatted for QR code generation
         """
         base_params = {
             "secret": self.secret,
@@ -202,30 +196,28 @@ class OTPEntry(ABC):
             "algorithm": self.algorithm,
         }
 
-        # Ajouter les paramètres spécifiques au type
         base_params.update(self._get_specific_params())
 
-        # Filtrer les paramètres None
+        # Drop None values, then URL-encode everything
         params = {k: v for k, v in base_params.items() if v is not None}
 
-        # Construire l'URL avec encodage approprié
         params_str = "&".join([f"{k}={quote(str(v))}" for k, v in params.items()])
         encoded_label = quote(self.label)
 
         return f"otpauth://{self.token_type}/{encoded_label}?{params_str}"
 
     def __str__(self) -> str:
-        """Représentation textuelle de l'entrée OTP."""
+        """Human-readable representation of the OTP entry."""
         return f"{self.__class__.__name__}(issuer='{self.issuer}', account='{self.account}')"
 
     def __repr__(self) -> str:
-        """Représentation technique de l'entrée OTP."""
+        """Technical representation of the OTP entry."""
         params = self.to_dict()
         params_str = ", ".join([f"{k}={repr(v)}" for k, v in params.items()])
         return f"{self.__class__.__name__}({params_str})"
 
     def __eq__(self, other) -> bool:
-        """Vérifie l'égalité entre deux entrées OTP."""
+        """Check equality between two OTP entries."""
         if not isinstance(other, OTPEntry):
             return False
         return self.to_dict() == other.to_dict()

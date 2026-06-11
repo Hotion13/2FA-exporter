@@ -1,3 +1,3 @@
 """
-Module tests - Tests unitaires pour 2FAS Exporter.
+tests module - Unit tests for 2FAS Exporter.
 """

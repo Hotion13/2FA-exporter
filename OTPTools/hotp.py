@@ -1,5 +1,5 @@
 """
-Implémentation de HOTP (HMAC-based One-Time Password).
+HOTP (HMAC-based One-Time Password) implementation.
 """
 
 from typing import Optional, Dict, Any
@@ -11,13 +11,13 @@ from .exceptions import InvalidParameterError
 
 class HOTPEntry(OTPEntry):
     """
-    Entrée HOTP (HMAC-based One-Time Password).
+    HOTP (HMAC-based One-Time Password) entry.
 
-    Génère des codes OTP basés sur un compteur incrémental.
-    Le code change uniquement quand le compteur est incrémenté.
+    Generates OTP codes based on an incrementing counter.
+    The code only changes when the counter is incremented.
 
     Attributes:
-        counter: Valeur actuelle du compteur (défaut: 0)
+        counter: Current counter value (default: 0)
 
     Example:
         >>> hotp = HOTPEntry(
@@ -42,18 +42,18 @@ class HOTPEntry(OTPEntry):
         algorithm: str = OTPConfig.DEFAULT_ALGORITHM,
     ):
         """
-        Initialise une entrée HOTP.
+        Initialize an HOTP entry.
 
         Args:
-            issuer: Nom du service émetteur
-            secret: Secret base32
-            account: Identifiant du compte (optionnel)
-            digits: Nombre de chiffres du code (6, 7 ou 8)
-            counter: Valeur initiale du compteur
-            algorithm: Algorithme de hachage (SHA1, SHA256, SHA512)
+            issuer: Name of the issuing service
+            secret: Base32 secret
+            account: Account identifier (optional)
+            digits: Number of digits in the code (6, 7 or 8)
+            counter: Initial counter value
+            algorithm: Hash algorithm (SHA1, SHA256, SHA512)
 
         Raises:
-            InvalidParameterError: Si le compteur est négatif
+            InvalidParameterError: If the counter is negative
         """
         self.counter = int(counter)
         super().__init__(issuer, secret, account, digits, algorithm)
@@ -61,46 +61,46 @@ class HOTPEntry(OTPEntry):
 
     def _validate_hotp_params(self) -> None:
         """
-        Valide les paramètres spécifiques au HOTP.
+        Validate HOTP-specific parameters.
 
         Raises:
-            InvalidParameterError: Si le compteur est négatif
+            InvalidParameterError: If the counter is negative
         """
         if self.counter < 0:
             raise InvalidParameterError(
-                "counter", self.counter, "Le compteur doit être positif ou nul"
+                "counter", self.counter, "Counter must be zero or positive"
             )
 
     @property
     def token_type(self) -> str:
-        """Retourne le type de token: 'hotp'."""
+        """Return the token type: 'hotp'."""
         return "hotp"
 
     def _get_specific_params(self) -> Dict[str, str]:
         """
-        Retourne les paramètres spécifiques au HOTP.
+        Return HOTP-specific parameters.
 
         Returns:
-            Dictionnaire avec le compteur actuel
+            Dictionary with the current counter
         """
         return {"counter": str(self.counter)}
 
     def increment_counter(self, steps: int = 1) -> int:
         """
-        Incrémente le compteur HOTP.
+        Increment the HOTP counter.
 
         Args:
-            steps: Nombre d'incrémentations (défaut: 1)
+            steps: Number of increments (default: 1)
 
         Returns:
-            La nouvelle valeur du compteur
+            The new counter value
 
         Raises:
-            InvalidParameterError: Si steps < 1
+            InvalidParameterError: If steps < 1
         """
         if steps < 1:
             raise InvalidParameterError(
-                "steps", steps, "Le nombre de pas doit être positif"
+                "steps", steps, "Number of steps must be positive"
             )
 
         self.counter += steps
@@ -108,29 +108,29 @@ class HOTPEntry(OTPEntry):
 
     def sync_counter(self, new_value: int) -> None:
         """
-        Synchronise le compteur avec une nouvelle valeur.
+        Synchronize the counter with a new value.
 
-        Utile pour resynchroniser avec un serveur.
+        Useful to resynchronize with a server.
 
         Args:
-            new_value: Nouvelle valeur du compteur
+            new_value: New counter value
 
         Raises:
-            InvalidParameterError: Si new_value < 0
+            InvalidParameterError: If new_value < 0
         """
         if new_value < 0:
             raise InvalidParameterError(
-                "counter", new_value, "Le compteur doit être positif ou nul"
+                "counter", new_value, "Counter must be zero or positive"
             )
 
         self.counter = new_value
 
     def to_dict(self) -> Dict[str, Any]:
         """
-        Convertit l'entrée HOTP en dictionnaire.
+        Convert the HOTP entry to a dictionary.
 
         Returns:
-            Dictionnaire contenant tous les paramètres HOTP
+            Dictionary containing all HOTP parameters
         """
         return {
             "issuer": self.issuer,
@@ -143,5 +143,5 @@ class HOTPEntry(OTPEntry):
         }
 
     def reset_counter(self) -> None:
-        """Réinitialise le compteur à 0."""
+        """Reset the counter to 0."""
         self.counter = 0

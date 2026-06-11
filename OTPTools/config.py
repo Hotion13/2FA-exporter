@@ -1,5 +1,5 @@
 """
-Configuration par défaut pour le module OTP.
+Default configuration for the OTP module.
 """
 
 from dataclasses import dataclass
@@ -8,37 +8,37 @@ from dataclasses import dataclass
 @dataclass
 class OTPConfig:
     """
-    Configuration et constantes par défaut pour les OTP.
+    Default configuration and constants for OTP tokens.
 
-    Cette classe contient toutes les valeurs par défaut et les contraintes
-    de validation pour les tokens OTP (TOTP et HOTP).
+    Holds all default values and validation constraints for OTP tokens
+    (TOTP and HOTP).
 
     Attributes:
-        DEFAULT_DIGITS: Nombre de chiffres par défaut (6)
-        DEFAULT_ALGORITHM: Algorithme de hachage par défaut (SHA1)
-        DEFAULT_PERIOD: Période par défaut pour TOTP en secondes (30)
-        DEFAULT_COUNTER: Compteur initial par défaut pour HOTP (0)
-        VALID_DIGITS: Tuple des nombres de chiffres valides
-        VALID_ALGORITHMS: Tuple des algorithmes supportés
-        MIN_PERIOD: Période minimale pour TOTP en secondes
-        MAX_PERIOD: Période maximale pour TOTP en secondes
+        DEFAULT_DIGITS: Default number of digits (6)
+        DEFAULT_ALGORITHM: Default hash algorithm (SHA1)
+        DEFAULT_PERIOD: Default TOTP period in seconds (30)
+        DEFAULT_COUNTER: Default initial HOTP counter (0)
+        VALID_DIGITS: Tuple of valid digit counts
+        VALID_ALGORITHMS: Tuple of supported algorithms
+        MIN_PERIOD: Minimum TOTP period in seconds
+        MAX_PERIOD: Maximum TOTP period in seconds
     """
 
-    # Valeurs par défaut
+    # Default values
     DEFAULT_DIGITS: int = 6
     DEFAULT_ALGORITHM: str = "SHA1"
     DEFAULT_PERIOD: int = 30
     DEFAULT_COUNTER: int = 0
 
-    # Contraintes de validation
+    # Validation constraints
     VALID_DIGITS: tuple = (6, 7, 8)
     VALID_ALGORITHMS: tuple = ("SHA1", "SHA256", "SHA512")
     MIN_PERIOD: int = 15
     MAX_PERIOD: int = 300
 
-    # Options d'export
-    DEFAULT_QR_SIZE: int = 10  # Taille du QR code
-    DEFAULT_QR_BORDER: int = 4  # Bordure du QR code
+    # Export options
+    DEFAULT_QR_SIZE: int = 10  # QR code size
+    DEFAULT_QR_BORDER: int = 4  # QR code border
 
-    # Formats d'export supportés
+    # Supported export formats
     EXPORT_FORMATS: tuple = ("qr", "url", "json", "csv")

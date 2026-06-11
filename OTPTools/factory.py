@@ -1,5 +1,5 @@
 """
-Factory pour créer des entrées OTP à partir de différentes sources.
+Factory to create OTP entries from various sources.
 """
 
 from typing import Dict, Any
@@ -14,33 +14,33 @@ from .exceptions import ParseError, OTPError
 
 class OTPFactory:
     """
-    Factory pour créer des entrées OTP à partir de différentes sources.
+    Factory to create OTP entries from various sources.
 
-    Cette classe fournit des méthodes statiques pour créer des instances
-    TOTPEntry ou HOTPEntry depuis différents formats d'entrée.
+    Provides static methods to build TOTPEntry or HOTPEntry instances
+    from different input formats.
 
     Methods:
-        create_from_dict: Crée une entrée depuis un dictionnaire générique
-        create_from_2fas: Crée une entrée depuis le format 2FAS spécifique
-        parse_otpauth_url: Parse une URL otpauth:// et crée l'objet OTP
+        create_from_dict: Create an entry from a generic dictionary
+        create_from_2fas: Create an entry from the 2FAS-specific format
+        parse_otpauth_url: Parse an otpauth:// URL into an OTP object
     """
 
     @staticmethod
     def create_from_dict(data: Dict[str, Any]) -> OTPEntry:
         """
-        Crée une entrée OTP à partir d'un dictionnaire.
+        Create an OTP entry from a dictionary.
 
         Args:
-            data: Dictionnaire contenant les paramètres OTP
-                  Doit contenir au minimum 'issuer' et 'secret'
-                  'type' optionnel (défaut: 'totp')
+            data: Dictionary of OTP parameters.
+                  Must contain at least 'issuer' and 'secret'.
+                  'type' is optional (default: 'totp').
 
         Returns:
-            Instance de TOTPEntry ou HOTPEntry selon le type
+            TOTPEntry or HOTPEntry instance depending on the type
 
         Raises:
-            ParseError: Si le type n'est pas supporté
-            KeyError: Si des champs requis sont manquants
+            ParseError: If the type is not supported
+            KeyError: If required fields are missing
 
         Example:
             >>> data = {
@@ -73,23 +73,23 @@ class OTPFactory:
             )
 
         else:
-            raise ParseError(f"Type OTP non supporté: {otp_type}")
+            raise ParseError(f"Unsupported OTP type: {otp_type}")
 
     @staticmethod
     def create_from_2fas(service: Dict[str, Any]) -> OTPEntry:
         """
-        Crée une entrée OTP à partir d'un service 2FAS.
+        Create an OTP entry from a 2FAS service.
 
         Args:
-            service: Dictionnaire contenant les données d'un service 2FAS
-                     Format attendu:
+            service: Dictionary containing a 2FAS service.
+                     Expected format:
                      {
                          "secret": "ABCD...",
                          "name": "Service Name",
                          "otp": {
                              "issuer": "Optional Issuer",
                              "account": "Optional Account",
-                             "tokenType": "TOTP" ou "HOTP",
+                             "tokenType": "TOTP" or "HOTP",
                              "digits": "6",
                              "period": "30",
                              "counter": "0",
@@ -98,11 +98,11 @@ class OTPFactory:
                      }
 
         Returns:
-            Instance de TOTPEntry ou HOTPEntry selon le tokenType
+            TOTPEntry or HOTPEntry instance depending on tokenType
 
         Raises:
-            ParseError: Si les données 2FAS sont invalides
-            OTPError: Si la création de l'objet OTP échoue
+            ParseError: If the 2FAS data is invalid
+            OTPError: If the OTP object creation fails
 
         Example:
             >>> service = {
@@ -113,33 +113,32 @@ class OTPFactory:
             >>> entry = OTPFactory.create_from_2fas(service)
         """
         if not isinstance(service, dict):
-            raise ParseError("Le service doit être un dictionnaire")
+            raise ParseError("Service must be a dictionary")
 
-        # Extraction du secret (obligatoire à la racine)
+        # Secret is required at the root level
         secret = service.get("secret", "")
         if not secret:
-            raise ParseError("Le secret est obligatoire dans les données 2FAS")
+            raise ParseError("Secret is required in 2FAS data")
 
-        # Extraction du nom/issuer (obligatoire)
+        # Service name is required
         name = service.get("name", "")
         if not name:
-            raise ParseError("Le nom du service est obligatoire")
+            raise ParseError("Service name is required")
 
-        # Extraction des paramètres OTP (dans l'objet "otp")
+        # OTP parameters live in the "otp" object
         otp_data = service.get("otp", {})
         if not isinstance(otp_data, dict):
             otp_data = {}
 
-        # Issuer : priorité à otp.issuer, sinon name
+        # Issuer: prefer otp.issuer, fall back to name
         issuer = otp_data.get("issuer", name)
 
-        # Account : depuis otp.account
         account = otp_data.get("account", "")
 
-        # Type de token (TOTP par défaut)
+        # Token type (TOTP by default)
         token_type = otp_data.get("tokenType", "TOTP").upper()
 
-        # Paramètres avec valeurs par défaut
+        # Parameters with default values
         digits = int(otp_data.get("digits", OTPConfig.DEFAULT_DIGITS))
         algorithm = otp_data.get("algorithm", OTPConfig.DEFAULT_ALGORITHM).upper()
 
@@ -154,7 +153,7 @@ class OTPFactory:
                     counter=counter,
                     algorithm=algorithm,
                 )
-            else:  # TOTP par défaut
+            else:  # TOTP by default
                 period = int(otp_data.get("period", OTPConfig.DEFAULT_PERIOD))
                 return TOTPEntry(
                     issuer=issuer,
@@ -165,60 +164,58 @@ class OTPFactory:
                     algorithm=algorithm,
                 )
         except (ValueError, TypeError) as e:
-            raise ParseError(f"Erreur de conversion des paramètres 2FAS: {e}")
+            raise ParseError(f"Failed to convert 2FAS parameters: {e}")
         except OTPError as e:
-            raise OTPError(f"Erreur de création OTP depuis 2FAS: {e}")
+            raise OTPError(f"Failed to create OTP from 2FAS data: {e}")
 
     @staticmethod
     def parse_otpauth_url(url: str) -> OTPEntry:
         """
-        Parse une URL otpauth:// et crée l'objet OTP correspondant.
+        Parse an otpauth:// URL and create the matching OTP object.
 
         Args:
-            url: URL au format otpauth://totp/Label?secret=XXX&issuer=YYY
+            url: URL in the form otpauth://totp/Label?secret=XXX&issuer=YYY
                  Format: otpauth://TYPE/LABEL?PARAMETERS
 
         Returns:
-            Instance de TOTPEntry ou HOTPEntry selon le type
+            TOTPEntry or HOTPEntry instance depending on the type
 
         Raises:
-            ParseError: Si l'URL est malformée
-            OTPError: Si la création de l'objet OTP échoue
+            ParseError: If the URL is malformed
+            OTPError: If the OTP object creation fails
 
         Example:
             >>> url = "otpauth://totp/GitHub:user@example.com?secret=JBSWY3DPEHPK3PXP&issuer=GitHub"
             >>> entry = OTPFactory.parse_otpauth_url(url)
         """
         if not url.startswith("otpauth://"):
-            raise ParseError("L'URL doit commencer par 'otpauth://'")
+            raise ParseError("URL must start with 'otpauth://'")
 
         try:
-            # Parse l'URL
             parsed = urllib.parse.urlparse(url)
 
-            # Extraction du type (totp/hotp)
+            # Type (totp/hotp) is the netloc part
             otp_type = parsed.netloc.lower()
             if otp_type not in ["totp", "hotp"]:
-                raise ParseError(f"Type OTP non supporté dans l'URL: {otp_type}")
+                raise ParseError(f"Unsupported OTP type in URL: {otp_type}")
 
-            # Extraction du label (path sans le /)
+            # Label is the path without the leading "/"
             label = urllib.parse.unquote(parsed.path.lstrip("/"))
             if not label:
-                raise ParseError("Le label est obligatoire dans l'URL otpauth")
+                raise ParseError("Label is required in otpauth URL")
 
-            # Parse des paramètres
             params = urllib.parse.parse_qs(parsed.query)
 
-            # Extraction du secret (obligatoire)
+            # Secret is required
             secret = params.get("secret", [None])[0]
             if not secret:
-                raise ParseError("Le paramètre 'secret' est obligatoire")
+                raise ParseError("'secret' parameter is required")
 
-            # Extraction de l'issuer et account depuis le label et les paramètres
+            # Issuer and account come from the label and/or parameters
             issuer = params.get("issuer", [None])[0]
             account = None
 
-            # Parse du label "issuer:account" ou juste "issuer"
+            # Label is either "issuer:account" or just "issuer"
             if ":" in label:
                 label_issuer, account = label.split(":", 1)
                 if not issuer:
@@ -228,15 +225,14 @@ class OTPFactory:
                     issuer = label
 
             if not issuer:
-                raise ParseError("L'issuer est obligatoire")
+                raise ParseError("Issuer is required")
 
-            # Paramètres optionnels avec valeurs par défaut
+            # Optional parameters with default values
             digits = int(params.get("digits", [OTPConfig.DEFAULT_DIGITS])[0])
             algorithm = params.get("algorithm", [OTPConfig.DEFAULT_ALGORITHM])[
                 0
             ].upper()
 
-            # Création selon le type
             if otp_type == "hotp":
                 counter = int(params.get("counter", [OTPConfig.DEFAULT_COUNTER])[0])
                 return HOTPEntry(
@@ -259,6 +255,6 @@ class OTPFactory:
                 )
 
         except (ValueError, TypeError) as e:
-            raise ParseError(f"Erreur de parse des paramètres URL: {e}")
+            raise ParseError(f"Failed to parse URL parameters: {e}")
         except OTPError as e:
-            raise OTPError(f"Erreur de création OTP depuis URL: {e}")
+            raise OTPError(f"Failed to create OTP from URL: {e}")

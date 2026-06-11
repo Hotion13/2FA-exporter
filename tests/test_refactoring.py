@@ -1,32 +1,30 @@
 #!/usr/bin/env python3
 """
-Test de validation du refactoring 2FAS Exporter.
+Validation tests for the 2FAS Exporter refactoring.
 
-Ce script teste les fonctionnalités principales après le refactoring
-pour s'assurer qu'il n'y a pas de régression.
+Exercises the main features after the refactoring to make sure
+there is no regression.
 """
 
 import sys
 import os
 import tempfile
 import json
-from pathlib import Path
 
-# Ajouter le répertoire racine au path pour les imports
+# Add the repository root to the path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from OTPTools.factory import OTPFactory
 from OTPTools import TOTPEntry, HOTPEntry
-from OTPTools.exceptions import OTPError, ParseError
 from BackupProcessors import BackupProcessorFactory, TwoFASProcessor
 from src.utils import sanitize_filename, generate_safe_filename
 
 
 def test_otpfactory_create_from_2fas():
-    """Test de création d'objet OTP via OTPFactory.create_from_2fas()."""
-    print("🧪 Test OTPFactory.create_from_2fas()...")
+    """Test OTP object creation via OTPFactory.create_from_2fas()."""
+    print("🧪 Testing OTPFactory.create_from_2fas()...")
 
-    # Test TOTP basique
+    # Basic TOTP
     service_totp = {
         "secret": "JBSWY3DPEHPK3PXP",
         "name": "GitHub",
@@ -48,12 +46,12 @@ def test_otpfactory_create_from_2fas():
         assert entry.secret == "JBSWY3DPEHPK3PXP"
         assert entry.digits == 6
         assert entry.period == 30
-        print("  ✅ TOTP créé avec succès")
+        print("  ✅ TOTP created successfully")
     except Exception as e:
-        print(f"  ❌ Erreur TOTP: {e}")
+        print(f"  ❌ TOTP error: {e}")
         return False
 
-    # Test HOTP
+    # HOTP
     service_hotp = {
         "secret": "JBSWY3DPEHPK3PXP",
         "name": "Service HOTP",
@@ -65,31 +63,31 @@ def test_otpfactory_create_from_2fas():
         assert isinstance(entry, HOTPEntry)
         assert entry.issuer == "Service HOTP"
         assert entry.counter == 5
-        print("  ✅ HOTP créé avec succès")
+        print("  ✅ HOTP created successfully")
     except Exception as e:
-        print(f"  ❌ Erreur HOTP: {e}")
+        print(f"  ❌ HOTP error: {e}")
         return False
 
-    # Test avec données minimales
+    # Minimal data
     service_minimal = {"secret": "JBSWY3DPEHPK3PXP", "name": "Minimal Service"}
 
     try:
         entry = OTPFactory.create_from_2fas(service_minimal)
-        assert isinstance(entry, TOTPEntry)  # TOTP par défaut
+        assert isinstance(entry, TOTPEntry)  # TOTP by default
         assert entry.issuer == "Minimal Service"
-        print("  ✅ Service minimal créé avec succès")
+        print("  ✅ Minimal service created successfully")
     except Exception as e:
-        print(f"  ❌ Erreur service minimal: {e}")
+        print(f"  ❌ Minimal service error: {e}")
         return False
 
     return True
 
 
 def test_otpfactory_parse_otpauth_url():
-    """Test de parsing d'URL otpauth via OTPFactory.parse_otpauth_url()."""
-    print("🧪 Test OTPFactory.parse_otpauth_url()...")
+    """Test otpauth URL parsing via OTPFactory.parse_otpauth_url()."""
+    print("🧪 Testing OTPFactory.parse_otpauth_url()...")
 
-    # Test URL TOTP
+    # TOTP URL
     totp_url = "otpauth://totp/GitHub:user@example.com?secret=JBSWY3DPEHPK3PXP&issuer=GitHub&digits=6&period=30"
 
     try:
@@ -98,12 +96,12 @@ def test_otpfactory_parse_otpauth_url():
         assert entry.issuer == "GitHub"
         assert entry.account == "user@example.com"
         assert entry.secret == "JBSWY3DPEHPK3PXP"
-        print("  ✅ URL TOTP parsée avec succès")
+        print("  ✅ TOTP URL parsed successfully")
     except Exception as e:
-        print(f"  ❌ Erreur URL TOTP: {e}")
+        print(f"  ❌ TOTP URL error: {e}")
         return False
 
-    # Test URL HOTP
+    # HOTP URL
     hotp_url = "otpauth://hotp/Service:account?secret=JBSWY3DPEHPK3PXP&issuer=Service&counter=0"
 
     try:
@@ -111,19 +109,19 @@ def test_otpfactory_parse_otpauth_url():
         assert isinstance(entry, HOTPEntry)
         assert entry.issuer == "Service"
         assert entry.account == "account"
-        print("  ✅ URL HOTP parsée avec succès")
+        print("  ✅ HOTP URL parsed successfully")
     except Exception as e:
-        print(f"  ❌ Erreur URL HOTP: {e}")
+        print(f"  ❌ HOTP URL error: {e}")
         return False
 
     return True
 
 
 def test_backup_processor_factory():
-    """Test de BackupProcessorFactory sur un fichier de backup réel."""
-    print("🧪 Test BackupProcessorFactory...")
+    """Test BackupProcessorFactory on a real backup file."""
+    print("🧪 Testing BackupProcessorFactory...")
 
-    # Créer un fichier de test 2FAS temporaire
+    # Create a temporary 2FAS test file
     test_data = {
         "services": [
             {
@@ -150,82 +148,81 @@ def test_backup_processor_factory():
         temp_file = f.name
 
     try:
-        # Test avec TwoFASProcessor direct
+        # Direct use of TwoFASProcessor
         processor = TwoFASProcessor()
         if not processor.can_process(temp_file):
-            print("  ❌ TwoFASProcessor ne peut pas traiter le fichier de test")
+            print("  ❌ TwoFASProcessor cannot handle the test file")
             return False
 
         entries = processor.process_backup(temp_file)
         assert len(entries) == 2
         assert isinstance(entries[0], TOTPEntry)
         assert isinstance(entries[1], HOTPEntry)
-        print("  ✅ TwoFASProcessor fonctionne correctement")
+        print("  ✅ TwoFASProcessor works correctly")
 
-        # Test avec BackupProcessorFactory
+        # Through BackupProcessorFactory
         factory = BackupProcessorFactory()
         entries = factory.process_backup(temp_file)
         assert len(entries) == 2
-        print("  ✅ BackupProcessorFactory fonctionne correctement")
+        print("  ✅ BackupProcessorFactory works correctly")
 
     except Exception as e:
-        print(f"  ❌ Erreur BackupProcessor: {e}")
+        print(f"  ❌ BackupProcessor error: {e}")
         return False
     finally:
-        # Nettoyer le fichier temporaire
         os.unlink(temp_file)
 
     return True
 
 
 def test_utils_functions():
-    """Test des fonctions utilitaires."""
-    print("🧪 Test des fonctions utilitaires...")
+    """Test the utility functions."""
+    print("🧪 Testing utility functions...")
 
-    # Test sanitize_filename
+    # sanitize_filename
     test_cases = [
         ("Normal Name", "Normal_Name"),
         ("Name with/slashes", "Name_with-slashes"),
         ("Name:with|special*chars", "Name-with-special-chars"),
         ("", "unknown"),
-        ("CON", "_CON"),  # Nom réservé Windows
+        ("CON", "_CON"),  # Windows reserved name
     ]
 
     for input_name, expected in test_cases:
         result = sanitize_filename(input_name)
         if result != expected:
             print(
-                f"  ❌ sanitize_filename('{input_name}') = '{result}', attendu '{expected}'"
+                f"  ❌ sanitize_filename('{input_name}') = '{result}', expected '{expected}'"
             )
             return False
 
-    print("  ✅ sanitize_filename fonctionne correctement")
+    print("  ✅ sanitize_filename works correctly")
 
-    # Test generate_safe_filename
+    # generate_safe_filename
     result = generate_safe_filename("GitHub", "user@example.com")
     expected = "GitHub_user@example.com"
     if result != expected:
-        print(f"  ❌ generate_safe_filename résultat inattendu: '{result}'")
+        print(f"  ❌ generate_safe_filename unexpected result: '{result}'")
         return False
 
     result = generate_safe_filename("GitHub", "")
     expected = "GitHub"
     if result != expected:
         print(
-            f"  ❌ generate_safe_filename sans account résultat inattendu: '{result}'"
+            f"  ❌ generate_safe_filename without account unexpected result: '{result}'"
         )
         return False
 
-    print("  ✅ generate_safe_filename fonctionne correctement")
+    print("  ✅ generate_safe_filename works correctly")
 
     return True
 
 
 def test_qr_code_generation():
-    """Test de génération d'URLs otpauth et comparaison."""
-    print("🧪 Test de génération d'URLs otpauth...")
+    """Test otpauth URL generation and round-trip."""
+    print("🧪 Testing otpauth URL generation...")
 
-    # Créer un objet TOTP via OTPFactory
+    # Build a TOTP object through OTPFactory
     service_data = {
         "secret": "JBSWY3DPEHPK3PXP",
         "name": "GitHub",
@@ -236,30 +233,30 @@ def test_qr_code_generation():
         entry = OTPFactory.create_from_2fas(service_data)
         otpauth_url = entry.otpauth
 
-        # Vérifier que l'URL contient les bonnes parties
+        # Check that the URL contains the expected parts
         assert otpauth_url.startswith("otpauth://totp/")
         assert "secret=JBSWY3DPEHPK3PXP" in otpauth_url
         assert "issuer=GitHub" in otpauth_url
-        print("  ✅ URL otpauth générée correctement")
+        print("  ✅ otpauth URL generated correctly")
         print(f"    URL: {otpauth_url}")
 
-        # Test de round-trip: créer depuis l'URL
+        # Round-trip: rebuild the entry from the URL
         parsed_entry = OTPFactory.parse_otpauth_url(otpauth_url)
         assert parsed_entry.secret == entry.secret
         assert parsed_entry.issuer == entry.issuer
         assert parsed_entry.account == entry.account
-        print("  ✅ Round-trip URL->OTP->URL réussi")
+        print("  ✅ URL->OTP->URL round-trip succeeded")
 
     except Exception as e:
-        print(f"  ❌ Erreur génération QR: {e}")
+        print(f"  ❌ QR generation error: {e}")
         return False
 
     return True
 
 
 def main():
-    """Lance tous les tests de validation."""
-    print("🚀 Début des tests de validation du refactoring...")
+    """Run all validation tests."""
+    print("🚀 Starting refactoring validation tests...")
     print("=" * 60)
 
     tests = [
@@ -282,18 +279,18 @@ def main():
                 failed += 1
                 print()
         except Exception as e:
-            print(f"❌ Erreur inattendue dans {test.__name__}: {e}")
+            print(f"❌ Unexpected error in {test.__name__}: {e}")
             failed += 1
             print()
 
     print("=" * 60)
-    print(f"📊 Résultats: {passed} tests réussis, {failed} tests échoués")
+    print(f"📊 Results: {passed} tests passed, {failed} tests failed")
 
     if failed == 0:
-        print("🎉 Tous les tests sont passés! Le refactoring est validé.")
+        print("🎉 All tests passed! The refactoring is validated.")
         return 0
     else:
-        print("⚠️  Des tests ont échoué. Vérifiez les erreurs ci-dessus.")
+        print("⚠️  Some tests failed. Check the errors above.")
         return 1
 
 

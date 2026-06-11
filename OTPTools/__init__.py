@@ -1,17 +1,17 @@
 """
-Module OTP (One-Time Password) pour la gestion TOTP et HOTP.
+OTP (One-Time Password) module for TOTP and HOTP management.
 
-Ce module fournit des classes et utilitaires pour travailler avec des tokens OTP,
-incluant la génération d'URLs otpauth pour QR codes et la validation des paramètres.
+Provides classes and utilities for working with OTP tokens, including
+otpauth URL generation for QR codes and parameter validation.
 
-Classes principales:
-    - TOTPEntry: Gestion des tokens basés sur le temps (Time-based OTP)
-    - HOTPEntry: Gestion des tokens basés sur compteur (HMAC-based OTP)
-    - OTPFactory: Factory pour créer des entrées OTP depuis diverses sources
-    - OTPConfig: Configuration et constantes par défaut
+Main classes:
+    - TOTPEntry: Time-based OTP tokens
+    - HOTPEntry: HMAC-based (counter) OTP tokens
+    - OTPFactory: Factory to create OTP entries from various sources
+    - OTPConfig: Default configuration and constants
 
-Usage typique:
-    >>> from otp_module import TOTPEntry
+Typical usage:
+    >>> from OTPTools import TOTPEntry
     >>> totp = TOTPEntry(issuer="GitHub", secret="JBSWY3DPEHPK3PXP")
     >>> print(totp.otpauth)
     otpauth://totp/GitHub?secret=JBSWY3DPEHPK3PXP&issuer=GitHub&digits=6&algorithm=SHA1
@@ -24,8 +24,7 @@ from .hotp import HOTPEntry
 from .factory import OTPFactory
 from .exceptions import OTPError, InvalidSecretError, InvalidParameterError, ParseError
 
-__version__ = "1.0.0"
-__author__ = "Your Name"
+__version__ = "1.0.3"
 __all__ = [
     "OTPConfig",
     "OTPEntry",

@@ -1,8 +1,8 @@
 """
-Interface de base abstraite pour les processors de backup.
+Abstract base interface for backup processors.
 
-Ce module définit l'interface commune que doivent implémenter
-tous les processors spécialisés pour assurer une utilisation uniforme.
+Defines the common interface every specialized processor must
+implement to guarantee uniform usage.
 """
 
 from abc import ABC, abstractmethod
@@ -12,61 +12,61 @@ from OTPTools import TOTPEntry, HOTPEntry
 
 class BaseBackupProcessor(ABC):
     """
-    Interface commune pour tous les processors de backup.
+    Common interface for all backup processors.
 
-    Chaque processor spécialisé doit implémenter cette interface
-    pour assurer une utilisation uniforme.
+    Every specialized processor must implement this interface
+    to guarantee uniform usage.
     """
 
     @property
     @abstractmethod
     def supported_formats(self) -> List[str]:
-        """Liste des extensions de fichier supportées (ex: ['.2fas', '.zip'])."""
+        """List of supported file extensions (e.g. ['.2fas', '.zip'])."""
         pass
 
     @property
     @abstractmethod
     def app_name(self) -> str:
-        """Nom de l'application source (ex: '2FAS', 'Google Authenticator')."""
+        """Name of the source application (e.g. '2FAS', 'Google Authenticator')."""
         pass
 
     @abstractmethod
     def can_process(self, file_path: str) -> bool:
         """
-        Vérifie si ce processor peut traiter le fichier donné.
+        Check whether this processor can handle the given file.
 
         Args:
-            file_path: Chemin vers le fichier de backup
+            file_path: Path to the backup file
 
         Returns:
-            True si le fichier peut être traité
+            True if the file can be processed
         """
         pass
 
     @abstractmethod
     def process_backup(self, file_path: str) -> List[Union[TOTPEntry, HOTPEntry]]:
         """
-        Traite un fichier de backup et retourne une liste d'entrées OTP.
+        Process a backup file and return a list of OTP entries.
 
         Args:
-            file_path: Chemin vers le fichier de backup
+            file_path: Path to the backup file
 
         Returns:
-            Liste d'objets TOTPEntry ou HOTPEntry
+            List of TOTPEntry or HOTPEntry objects
 
         Raises:
-            BackupProcessorError: Si le traitement échoue
+            BackupProcessorError: If processing fails
         """
         pass
 
     def get_metadata(self, file_path: str) -> Dict[str, Any]:
         """
-        Extrait les métadonnées du backup (optionnel).
+        Extract backup metadata (optional).
 
         Args:
-            file_path: Chemin vers le fichier de backup
+            file_path: Path to the backup file
 
         Returns:
-            Dictionnaire avec les métadonnées (nombre d'entrées, version, etc.)
+            Dictionary of metadata (entry count, version, etc.)
         """
         return {}

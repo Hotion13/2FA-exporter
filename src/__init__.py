@@ -1,3 +1,3 @@
 """
-Module src - Utilitaires et fonctions partagées pour 2FAS Exporter.
+src module - Shared utilities and helper functions for 2FAS Exporter.
 """

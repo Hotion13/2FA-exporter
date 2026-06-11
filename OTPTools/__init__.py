@@ -24,7 +24,7 @@ from .hotp import HOTPEntry
 from .factory import OTPFactory
 from .exceptions import OTPError, InvalidSecretError, InvalidParameterError, ParseError
 
-__version__ = "1.0.3"
+__version__ = "1.0.4"
 __all__ = [
     "OTPConfig",
     "OTPEntry",

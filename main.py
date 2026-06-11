@@ -4,7 +4,7 @@ import argparse
 import logging
 import qrcode
 from importlib.metadata import PackageNotFoundError, version
-from typing import List, Union
+from typing import List, Tuple, Union
 
 from BackupProcessors import (
     BackupProcessorFactory,
@@ -26,7 +26,7 @@ def _get_version() -> str:
 
 def generate_qr_codes_from_entries(
     entries: List[Union[TOTPEntry, HOTPEntry]], output_dir: str, verbose: bool = False
-):
+) -> Tuple[int, int]:
     """
     Generate QR codes for a list of OTP entries.
 
@@ -34,6 +34,9 @@ def generate_qr_codes_from_entries(
         entries: List of OTPEntry objects (TOTP or HOTP)
         output_dir: Output directory for the QR code images
         verbose: Enable detailed logging
+
+    Returns:
+        (success_count, error_count) tuple
     """
     # PNGs hold plaintext OTP secrets: owner-only access
     os.makedirs(output_dir, mode=0o700, exist_ok=True)
@@ -76,6 +79,8 @@ def generate_qr_codes_from_entries(
     if error_count > 0:
         logging.warning(f"⚠️  {error_count} errors encountered")
 
+    return success_count, error_count
+
 
 def list_entries(entries: List[Union[TOTPEntry, HOTPEntry]]):
     """
@@ -110,6 +115,11 @@ Examples:
   %(prog)s backup.2fas ./qr_codes --verbose          # Verbose output
   %(prog)s backup.zip ./qr_codes --format 2fas       # Force 2FAS format
   %(prog)s backup.json ./qr_codes --list-only        # List entries only
+
+Exit codes:
+  0  complete success
+  1  fatal error (unreadable backup, wrong/cancelled password)
+  2  partial success (some QR codes failed)
         """,
     )
 
@@ -191,9 +201,11 @@ Examples:
 
         if entries:
             logging.info(f"🚀 Generating QR codes in {args.destination_folder}")
-            generate_qr_codes_from_entries(
+            _, error_count = generate_qr_codes_from_entries(
                 entries, args.destination_folder, args.verbose
             )
+            if error_count > 0:
+                sys.exit(2)
         else:
             logging.warning("⚠️  No valid OTP entries found in the backup")
 

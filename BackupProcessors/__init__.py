@@ -37,7 +37,7 @@ from .exceptions import (
     PasswordCancelledError,
     InvalidPasswordError,
 )
-from .base import BaseBackupProcessor
+from .base import BaseBackupProcessor, PasswordProvider, PasswordRequest
 from .twofas import TwoFASProcessor
 
 # OTP classes re-exported from the parent module
@@ -73,12 +73,18 @@ class BackupProcessorFactory:
                 return processor
         return None
 
-    def process_backup(self, file_path: str) -> List[Union[TOTPEntry, HOTPEntry]]:
+    def process_backup(
+        self,
+        file_path: str,
+        password_provider: Optional[PasswordProvider] = None,
+    ) -> List[Union[TOTPEntry, HOTPEntry]]:
         """
         Process a backup automatically by detecting its format.
 
         Args:
             file_path: Path to the backup file
+            password_provider: Callback used for encrypted backups; when None,
+                processors fall back to an interactive getpass prompt
 
         Returns:
             List of OTP entries
@@ -91,7 +97,7 @@ class BackupProcessorFactory:
         if processor is None:
             raise UnsupportedFormatError("Unrecognized format", file_path)
 
-        return processor.process_backup(file_path)
+        return processor.process_backup(file_path, password_provider)
 
     def get_supported_apps(self) -> List[str]:
         """Return the list of supported applications."""
@@ -111,6 +117,8 @@ __all__ = [
     "InvalidPasswordError",
     # Base interface
     "BaseBackupProcessor",
+    "PasswordProvider",
+    "PasswordRequest",
     # Specialized processors
     "TwoFASProcessor",
     # Factory

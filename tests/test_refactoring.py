@@ -16,7 +16,12 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from OTPTools.factory import OTPFactory
 from OTPTools import TOTPEntry, HOTPEntry
-from BackupProcessors import BackupProcessorFactory, TwoFASProcessor
+from BackupProcessors import (
+    BackupProcessorFactory,
+    TwoFASProcessor,
+    InvalidPasswordError,
+    PasswordCancelledError,
+)
 from src.utils import sanitize_filename, generate_safe_filename
 
 
@@ -175,6 +180,116 @@ def test_backup_processor_factory():
     return True
 
 
+def _make_encrypted_backup(password: str, issuer: str = "Encrypted Service") -> str:
+    """Write an encrypted 2FAS backup to a temp file, return its path."""
+    import base64
+    import hashlib
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+    services = [
+        {
+            "secret": "JBSWY3DPEHPK3PXP",
+            "name": issuer,
+            "otp": {"issuer": issuer, "tokenType": "TOTP"},
+        }
+    ]
+
+    salt = os.urandom(16)
+    iv = os.urandom(12)
+    key = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, 10_000, dklen=32)
+    ciphertext = AESGCM(key).encrypt(iv, json.dumps(services).encode(), None)
+
+    b64 = lambda raw: base64.b64encode(raw).decode()
+    blob = f"{b64(ciphertext)}:{b64(salt)}:{b64(iv)}"
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".2fas", delete=False) as f:
+        json.dump({"servicesEncrypted": blob}, f)
+        return f.name
+
+
+def test_password_provider():
+    """Test PasswordProvider injection on encrypted backups (C1)."""
+    print("🧪 Testing PasswordProvider injection...")
+
+    backup = _make_encrypted_backup("correct horse")
+    processor = TwoFASProcessor()
+
+    try:
+        # Correct password on first attempt
+        calls = []
+
+        def good_provider(request):
+            calls.append(request)
+            return "correct horse"
+
+        entries = processor.process_backup(backup, good_provider)
+        assert len(entries) == 1
+        assert entries[0].issuer == "Encrypted Service"
+        assert len(calls) == 1
+        assert calls[0].attempt == 0
+        assert calls[0].previous_failed is False
+        print("  ✅ Correct password accepted on first attempt")
+
+        # Wrong then correct password
+        calls = []
+
+        def retry_provider(request):
+            calls.append(request)
+            return "wrong" if request.attempt == 0 else "correct horse"
+
+        entries = processor.process_backup(backup, retry_provider)
+        assert len(entries) == 1
+        assert len(calls) == 2
+        assert calls[1].attempt == 1
+        assert calls[1].previous_failed is True
+        print("  ✅ Retry after a wrong password works")
+
+        # Attempts exhausted
+        try:
+            processor.process_backup(backup, lambda request: "always wrong")
+            print("  ❌ InvalidPasswordError not raised")
+            return False
+        except InvalidPasswordError:
+            print("  ✅ InvalidPasswordError raised after max attempts")
+
+        # Cancellation (provider returns None)
+        try:
+            processor.process_backup(backup, lambda request: None)
+            print("  ❌ PasswordCancelledError not raised")
+            return False
+        except PasswordCancelledError:
+            print("  ✅ PasswordCancelledError raised on cancellation")
+
+        # No state leaks between calls: a second backup with another
+        # password must trigger its own prompt (no cached password)
+        other_backup = _make_encrypted_backup("other password", issuer="Other")
+        try:
+            other_calls = []
+
+            def other_provider(request):
+                other_calls.append(request)
+                return "other password"
+
+            factory = BackupProcessorFactory()
+            entries = factory.process_backup(backup, good_provider)
+            assert len(entries) == 1
+            entries = factory.process_backup(other_backup, other_provider)
+            assert len(entries) == 1
+            assert len(other_calls) == 1, "second backup must ask for its own password"
+            assert other_calls[0].attempt == 0
+            print("  ✅ No password cached between process_backup calls")
+        finally:
+            os.unlink(other_backup)
+
+    except Exception as e:
+        print(f"  ❌ PasswordProvider error: {e}")
+        return False
+    finally:
+        os.unlink(backup)
+
+    return True
+
+
 def test_utils_functions():
     """Test the utility functions."""
     print("🧪 Testing utility functions...")
@@ -263,6 +378,7 @@ def main():
         test_otpfactory_create_from_2fas,
         test_otpfactory_parse_otpauth_url,
         test_backup_processor_factory,
+        test_password_provider,
         test_utils_functions,
         test_qr_code_generation,
     ]

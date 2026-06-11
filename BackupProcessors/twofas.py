@@ -20,7 +20,7 @@ import hashlib
 from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
-from .base import BaseBackupProcessor
+from .base import BaseBackupProcessor, PasswordProvider, PasswordRequest
 from .exceptions import (
     UnsupportedFormatError,
     CorruptedBackupError,
@@ -37,6 +37,23 @@ from OTPTools.exceptions import OTPError, ParseError
 logger = logging.getLogger(__name__)
 
 
+def _getpass_provider(request: PasswordRequest) -> Optional[str]:
+    """Default interactive provider: getpass on a TTY, None on cancellation."""
+    if not sys.stdin.isatty():
+        raise PasswordRequiredError(request.source)
+
+    prompt = (
+        "Wrong password, try again: "
+        if request.previous_failed
+        else "2FAS backup password: "
+    )
+
+    try:
+        return getpass(prompt)
+    except (EOFError, KeyboardInterrupt):
+        return None
+
+
 class TwoFASProcessor(BaseBackupProcessor):
     """Processor for 2FAS Android backups.
 
@@ -49,9 +66,6 @@ class TwoFASProcessor(BaseBackupProcessor):
     _PBKDF2_ITERATIONS = 10_000
     _PBKDF2_KEY_LENGTH = 32
     _MAX_PASSWORD_ATTEMPTS = 3
-
-    def __init__(self) -> None:
-        self._cached_password: Optional[str] = None
 
     @property
     def supported_formats(self) -> List[str]:
@@ -116,24 +130,44 @@ class TwoFASProcessor(BaseBackupProcessor):
 
         return False
 
-    def process_backup(self, file_path: str) -> List[Union[TOTPEntry, HOTPEntry]]:
-        """Process a 2FAS backup and return the OTP entries."""
+    def process_backup(
+        self,
+        file_path: str,
+        password_provider: Optional[PasswordProvider] = None,
+    ) -> List[Union[TOTPEntry, HOTPEntry]]:
+        """Process a 2FAS backup and return the OTP entries.
+
+        Args:
+            file_path: Path to the backup file
+            password_provider: Callback used for encrypted backups; defaults
+                to an interactive getpass prompt (TTY required)
+        """
         path = Path(file_path)
 
         if not path.exists() or path.suffix.lower() not in self.supported_formats:
             raise UnsupportedFormatError(self.app_name, file_path)
 
+        provider = password_provider or _getpass_provider
+        # Validated password shared between dumps of this call only
+        # (multi-dump ZIP); discarded when the call returns.
+        session: Dict[str, str] = {}
+
         try:
             if path.suffix.lower() == ".zip":
-                return self._process_zip_backup(path)
-            return self._process_json_backup(path)
+                return self._process_zip_backup(path, provider, session)
+            return self._process_json_backup(path, provider, session)
         except (UnsupportedFormatError, CorruptedBackupError, PasswordError):
             raise
         except Exception as e:
             raise CorruptedBackupError(file_path, str(e))
+        finally:
+            session.clear()
 
     def _process_json_backup(
-        self, json_path: Path
+        self,
+        json_path: Path,
+        provider: PasswordProvider,
+        session: Dict[str, str],
     ) -> List[Union[TOTPEntry, HOTPEntry]]:
         """Process a 2FAS JSON file."""
         with open(json_path, "r", encoding="utf-8") as f:
@@ -142,11 +176,16 @@ class TwoFASProcessor(BaseBackupProcessor):
         if not self._is_valid_2fas_format(data):
             raise UnsupportedFormatError(self.app_name, str(json_path))
 
-        data = self._decrypt_backup_if_needed(data, str(json_path))
+        data = self._decrypt_backup_if_needed(data, str(json_path), provider, session)
 
         return self._extract_entries_from_data(data)
 
-    def _process_zip_backup(self, zip_path: Path) -> List[Union[TOTPEntry, HOTPEntry]]:
+    def _process_zip_backup(
+        self,
+        zip_path: Path,
+        provider: PasswordProvider,
+        session: Dict[str, str],
+    ) -> List[Union[TOTPEntry, HOTPEntry]]:
         """Process a 2FAS ZIP archive."""
         entries = []
         found_valid_data = False
@@ -160,7 +199,9 @@ class TwoFASProcessor(BaseBackupProcessor):
                     if self._is_valid_2fas_format(data):
                         found_valid_data = True
                         source = f"{zip_path}!/{json_file}"
-                        data = self._decrypt_backup_if_needed(data, source)
+                        data = self._decrypt_backup_if_needed(
+                            data, source, provider, session
+                        )
                         entries.extend(self._extract_entries_from_data(data))
 
         if not found_valid_data:
@@ -202,7 +243,13 @@ class TwoFASProcessor(BaseBackupProcessor):
         encrypted = data.get("servicesEncrypted")
         return isinstance(encrypted, str) and encrypted.strip() != ""
 
-    def _decrypt_backup_if_needed(self, data: Any, source: str) -> Any:
+    def _decrypt_backup_if_needed(
+        self,
+        data: Any,
+        source: str,
+        provider: PasswordProvider,
+        session: Dict[str, str],
+    ) -> Any:
         """Decrypt a 2FAS backup if needed."""
         if not isinstance(data, dict) or not self._is_encrypted_backup(data):
             return data
@@ -211,11 +258,11 @@ class TwoFASProcessor(BaseBackupProcessor):
         reference_encrypted = data.get("reference")
         key_encoded = data.get("keyEncoded") or data.get("key")
 
-        password: Optional[str] = self._cached_password
+        password: Optional[str] = session.get("password")
         attempts = 0
 
         if key_encoded is None and password is None:
-            password = self._prompt_for_password(attempts, source)
+            password = self._ask_password(provider, source, attempts)
 
         while True:
             try:
@@ -247,9 +294,9 @@ class TwoFASProcessor(BaseBackupProcessor):
                             source,
                         )
 
-                # Reuse the validated password for other dumps in this session
+                # Reuse the validated password for the other dumps of this call
                 if key_encoded is None and password is not None:
-                    self._cached_password = password
+                    session["password"] = password
 
                 return data_copy
 
@@ -264,28 +311,27 @@ class TwoFASProcessor(BaseBackupProcessor):
                 if attempts >= self._MAX_PASSWORD_ATTEMPTS:
                     raise InvalidPasswordError(source)
 
-                password = self._prompt_for_password(attempts, source)
+                password = self._ask_password(
+                    provider, source, attempts, previous_failed=True
+                )
 
             except json.JSONDecodeError as exc:
                 raise CorruptedBackupError(
                     source, f"Invalid JSON data after decryption: {exc}"
                 )
 
-    def _prompt_for_password(self, attempt: int, source: str) -> str:
-        """Prompt the user for the password, handling cancellation."""
-        if not sys.stdin.isatty():
-            raise PasswordRequiredError(source)
-
-        prompt = (
-            "2FAS backup password: "
-            if attempt == 0
-            else "Wrong password, try again: "
-        )
-
-        try:
-            return getpass(prompt)
-        except (EOFError, KeyboardInterrupt):
+    @staticmethod
+    def _ask_password(
+        provider: PasswordProvider,
+        source: str,
+        attempt: int,
+        previous_failed: bool = False,
+    ) -> str:
+        """Ask the provider for a password; None means the user cancelled."""
+        password = provider(PasswordRequest(source, attempt, previous_failed))
+        if password is None:
             raise PasswordCancelledError(source)
+        return password
 
     def _decrypt_encrypted_blob(
         self,
@@ -395,10 +441,14 @@ class TwoFASProcessor(BaseBackupProcessor):
             logger.exception("Unexpected error for %s: %s", service_name, e)
             return None
 
-    def get_metadata(self, file_path: str) -> Dict[str, Any]:
+    def get_metadata(
+        self,
+        file_path: str,
+        password_provider: Optional[PasswordProvider] = None,
+    ) -> Dict[str, Any]:
         """Extract metadata from the 2FAS backup."""
         try:
-            entries = self.process_backup(file_path)
+            entries = self.process_backup(file_path, password_provider)
 
             totp_count = sum(1 for e in entries if isinstance(e, TOTPEntry))
             hotp_count = sum(1 for e in entries if isinstance(e, HOTPEntry))

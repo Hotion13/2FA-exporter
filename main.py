@@ -86,6 +86,7 @@ def list_entries(entries: List[Union[TOTPEntry, HOTPEntry]]):
 
 def main():
     parser = argparse.ArgumentParser(
+        prog="2fa-exporter",
         description="Export QR codes from 2FAS and other 2FA backup files.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
@@ -123,7 +124,7 @@ Examples:
         help="List entries without generating QR codes",
     )
     parser.add_argument(
-        "--version", action="version", version="%(prog)s 1.0.1"
+        "--version", action="version", version="%(prog)s 1.0.2"
     )
 
     args = parser.parse_args()

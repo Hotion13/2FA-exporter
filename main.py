@@ -3,6 +3,7 @@ import sys
 import argparse
 import logging
 import qrcode
+from importlib.metadata import PackageNotFoundError, version
 from typing import List, Union
 
 from BackupProcessors import (
@@ -12,6 +13,14 @@ from BackupProcessors import (
 )
 from OTPTools import TOTPEntry, HOTPEntry
 from src.utils import generate_safe_filename
+
+
+def _get_version() -> str:
+    """Return the installed package version, or "unknown" outside an install."""
+    try:
+        return version("2fa-exporter")
+    except PackageNotFoundError:
+        return "unknown"
 
 
 def generate_qr_codes_from_entries(
@@ -36,6 +45,12 @@ def generate_qr_codes_from_entries(
 
             safe_filename = generate_safe_filename(entry.issuer, entry.account)
             output_file = os.path.join(output_dir, f"{safe_filename}.png")
+
+            # Same issuer+account would silently overwrite: suffix _2, _3, ...
+            suffix = 2
+            while os.path.exists(output_file):
+                output_file = os.path.join(output_dir, f"{safe_filename}_{suffix}.png")
+                suffix += 1
 
             with open(output_file, "wb") as f:
                 qr_img.save(f)
@@ -117,7 +132,7 @@ Examples:
         help="List entries without generating QR codes",
     )
     parser.add_argument(
-        "--version", action="version", version="%(prog)s 1.0.2"
+        "--version", action="version", version=f"%(prog)s {_get_version()}"
     )
 
     args = parser.parse_args()

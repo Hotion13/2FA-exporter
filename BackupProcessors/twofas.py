@@ -80,20 +80,18 @@ class TwoFASProcessor(BaseBackupProcessor):
         return False
 
     def _is_valid_2fas_format(self, data: Dict) -> bool:
-        """Check whether the JSON data matches the 2FAS format."""
-        if isinstance(data, dict):
-            if "services" in data or "entries" in data:
-                return True
-            # The dictionary may represent a single service directly
-            if "secret" in data:
-                return True
+        """Check whether the JSON data matches the 2FAS format.
 
-        if isinstance(data, list) and data:
-            first_item = data[0]
-            if isinstance(first_item, dict) and "secret" in first_item:
-                return True
-
-        return False
+        Only accepts the documented 2FAS roots; any dict merely containing
+        a "secret" key would match unrelated files (JWT, k8s secrets, ...).
+        """
+        if not isinstance(data, dict):
+            return False
+        return (
+            "services" in data
+            or "entries" in data
+            or "servicesEncrypted" in data
+        )
 
     def _is_valid_2fas_zip(self, zip_path: Path) -> bool:
         """Check whether the ZIP archive contains a 2FAS backup."""

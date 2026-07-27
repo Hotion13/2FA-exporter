@@ -25,6 +25,8 @@ class OTPEntry(ABC):
         account: User account (email or username)
         digits: Number of digits in the OTP code (6, 7 or 8)
         algorithm: Hash algorithm (SHA1, SHA256, SHA512)
+        name: User-chosen display name from the backup (optional);
+              not part of the otpauth URL
 
     Raises:
         InvalidSecretError: If the secret is not valid base32
@@ -38,6 +40,7 @@ class OTPEntry(ABC):
         account: Optional[str] = None,
         digits: int = OTPConfig.DEFAULT_DIGITS,
         algorithm: str = OTPConfig.DEFAULT_ALGORITHM,
+        name: Optional[str] = None,
     ):
         """
         Initialize an OTP entry.
@@ -48,12 +51,14 @@ class OTPEntry(ABC):
             account: Account identifier (optional)
             digits: Number of digits in the code
             algorithm: Hash algorithm
+            name: User-chosen display name from the backup (optional)
         """
         self.issuer = self._sanitize_string(issuer)
         self.secret = self._normalize_secret(secret)
         self.account = self._sanitize_string(account) if account else None
         self.digits = int(digits)
         self.algorithm = algorithm.upper()
+        self.name = name.strip() if name and name.strip() else None
 
         self._validate_common_params()
         self._label = self._generate_label()

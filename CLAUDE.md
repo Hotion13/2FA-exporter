@@ -33,11 +33,15 @@ Options CLI :
 uv run 2fa-exporter backup.2fas --list-only            # lister sans générer
 uv run 2fa-exporter backup.2fas ./qrcodes --verbose    # mode verbeux
 uv run 2fa-exporter backup.zip  ./qrcodes --format 2fas # forcer le format
+uv run 2fa-exporter backup.2fas ./qrcodes --filename-source name # nommer via le name 2FAS
 uv run python main.py --help                           # aide complète
 ```
 
 Sortie : un PNG par service, nom assaini `{issuer_safe}_{account_safe}.png`
 (suffixe `_2`, `_3`… en cas de collision). Dossier créé en `0o700`, PNG en `0o600`.
+`--filename-source name` remplace l'issuer par le `name` 2FAS (nom d'affichage
+choisi par l'utilisateur, porté par `OTPEntry.name`) — fallback issuer si absent.
+L'URL `otpauth://` du QR n'est jamais affectée.
 
 Exit codes : `0` succès complet · `1` erreur fatale (backup illisible, mdp
 invalide/annulé) · `2` succès partiel (certains QR ont échoué).

@@ -25,7 +25,10 @@ def _get_version() -> str:
 
 
 def generate_qr_codes_from_entries(
-    entries: List[Union[TOTPEntry, HOTPEntry]], output_dir: str, verbose: bool = False
+    entries: List[Union[TOTPEntry, HOTPEntry]],
+    output_dir: str,
+    verbose: bool = False,
+    filename_source: str = "issuer",
 ) -> Tuple[int, int]:
     """
     Generate QR codes for a list of OTP entries.
@@ -34,6 +37,9 @@ def generate_qr_codes_from_entries(
         entries: List of OTPEntry objects (TOTP or HOTP)
         output_dir: Output directory for the QR code images
         verbose: Enable detailed logging
+        filename_source: Field used as the filename base: "issuer" (default)
+            or "name" (the display name from the backup, falling back to
+            the issuer when the entry has none)
 
     Returns:
         (success_count, error_count) tuple
@@ -48,10 +54,14 @@ def generate_qr_codes_from_entries(
         try:
             qr_img = qrcode.make(entry.otpauth)
 
-            safe_filename = generate_safe_filename(entry.issuer, entry.account)
+            if filename_source == "name":
+                base_name = entry.name or entry.issuer
+            else:
+                base_name = entry.issuer
+            safe_filename = generate_safe_filename(base_name, entry.account)
             output_file = os.path.join(output_dir, f"{safe_filename}.png")
 
-            # Same issuer+account would silently overwrite: suffix _2, _3, ...
+            # Same base+account would silently overwrite: suffix _2, _3, ...
             suffix = 2
             while os.path.exists(output_file):
                 output_file = os.path.join(output_dir, f"{safe_filename}_{suffix}.png")
@@ -99,7 +109,10 @@ def list_entries(entries: List[Union[TOTPEntry, HOTPEntry]]):
     for i, entry in enumerate(entries, 1):
         entry_type = "TOTP" if isinstance(entry, TOTPEntry) else "HOTP"
         account_info = f" ({entry.account})" if entry.account else ""
-        print(f"{i:2d}. [{entry_type}] {entry.issuer}{account_info}")
+        name_info = (
+            f" — name: {entry.name}" if entry.name and entry.name != entry.issuer else ""
+        )
+        print(f"{i:2d}. [{entry_type}] {entry.issuer}{account_info}{name_info}")
 
     print("-" * 50)
 
@@ -115,6 +128,7 @@ Examples:
   %(prog)s backup.2fas ./qr_codes --verbose          # Verbose output
   %(prog)s backup.zip ./qr_codes --format 2fas       # Force 2FAS format
   %(prog)s backup.json ./qr_codes --list-only        # List entries only
+  %(prog)s backup.2fas ./qr_codes --filename-source name  # Name files after the 2FAS display name
 
 Exit codes:
   0  complete success
@@ -139,6 +153,16 @@ Exit codes:
         choices=["auto", "2fas"],
         default="auto",
         help="Force backup format detection (default: auto)",
+    )
+    parser.add_argument(
+        "--filename-source",
+        choices=["issuer", "name"],
+        default="issuer",
+        help=(
+            "Field used to build the PNG filenames: 'issuer' (default) or "
+            "'name', the display name you set in the 2FAS app (falls back "
+            "to the issuer for entries without one)"
+        ),
     )
     parser.add_argument(
         "--verbose", "-v", action="store_true", help="Enable verbose logging"
@@ -202,7 +226,7 @@ Exit codes:
         if entries:
             logging.info(f"🚀 Generating QR codes in {args.destination_folder}")
             _, error_count = generate_qr_codes_from_entries(
-                entries, args.destination_folder, args.verbose
+                entries, args.destination_folder, args.verbose, args.filename_source
             )
             if error_count > 0:
                 sys.exit(2)

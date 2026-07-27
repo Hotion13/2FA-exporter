@@ -9,7 +9,7 @@ Turn a `.2fas`, `.json`, or `.zip` backup — encrypted or not — into one clea
 [![Python](https://img.shields.io/badge/python-%3E%3D3.8-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Managed with uv](https://img.shields.io/badge/managed%20with-uv-261230.svg)](https://github.com/astral-sh/uv)
-[![Version](https://img.shields.io/badge/version-1.0.2-orange.svg)](pyproject.toml)
+[![Version](https://img.shields.io/badge/version-1.1.0-orange.svg)](pyproject.toml)
 
 </div>
 
@@ -19,7 +19,7 @@ Turn a `.2fas`, `.json`, or `.zip` backup — encrypted or not — into one clea
 
 - **🔍 Automatic format detection** — handles 2FAS `.2fas`, `.json`, and `.zip` backups out of the box.
 - **🔓 Encrypted backup support** — decrypts password-protected 2FAS exports (PBKDF2 + AES-GCM).
-- **🖼️ One QR per service** — a clean PNG per entry, named `{issuer}_{account}.png` (sanitized, collision-free).
+- **🖼️ One QR per service** — a clean PNG per entry, named `{issuer}_{account}.png` (sanitized, collision-free), or after your 2FAS display name with `--filename-source name`.
 - **⚙️ Rich CLI** — list entries, force a format, or run in verbose mode.
 - **📦 Standards-compliant** — emits standard `otpauth://` URLs (TOTP & HOTP) that import into any authenticator.
 
@@ -109,6 +109,8 @@ uv run 2fa-exporter <backup_file> <output_dir>
 
 `output_dir` is **required** (except with `--list-only`) and is **created automatically**. A relative path like `./qrcodes` is resolved from your current directory. Each service is written to `<output_dir>/{issuer}_{account}.png`.
 
+> **Filenames look wrong?** The issuer comes from the original QR code, not from the name you gave the entry in the 2FAS app — e.g. every Proxmox server exports as `Proxmox_root@pam.png` no matter what you renamed it to. Use `--filename-source name` to name the files after your 2FAS display names instead (entries without one fall back to the issuer).
+
 ### Options
 
 ```bash
@@ -120,6 +122,9 @@ uv run 2fa-exporter backup.2fas ./qrcodes --verbose
 
 # Force the 2FAS format (skip auto-detection)
 uv run 2fa-exporter backup.zip ./qrcodes --format 2fas
+
+# Name the PNGs after your 2FAS display names instead of the issuer
+uv run 2fa-exporter backup.2fas ./qrcodes --filename-source name
 
 # Full help
 uv run 2fa-exporter --help

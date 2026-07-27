@@ -9,7 +9,7 @@ Turn a `.2fas`, `.json`, or `.zip` backup — encrypted or not — into one clea
 [![Python](https://img.shields.io/badge/python-%3E%3D3.8-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Managed with uv](https://img.shields.io/badge/managed%20with-uv-261230.svg)](https://github.com/astral-sh/uv)
-[![Version](https://img.shields.io/badge/version-1.0.2-orange.svg)](pyproject.toml)
+[![Version](https://img.shields.io/badge/version-1.1.0-orange.svg)](pyproject.toml)
 
 </div>
 

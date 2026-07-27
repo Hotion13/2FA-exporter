@@ -152,6 +152,7 @@ class OTPFactory:
                     digits=digits,
                     counter=counter,
                     algorithm=algorithm,
+                    name=name,
                 )
             else:  # TOTP by default
                 period = int(otp_data.get("period", OTPConfig.DEFAULT_PERIOD))
@@ -162,6 +163,7 @@ class OTPFactory:
                     digits=digits,
                     period=period,
                     algorithm=algorithm,
+                    name=name,
                 )
         except (ValueError, TypeError) as e:
             raise ParseError(f"Failed to convert 2FAS parameters: {e}")

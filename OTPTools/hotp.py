@@ -40,6 +40,7 @@ class HOTPEntry(OTPEntry):
         digits: int = OTPConfig.DEFAULT_DIGITS,
         counter: int = OTPConfig.DEFAULT_COUNTER,
         algorithm: str = OTPConfig.DEFAULT_ALGORITHM,
+        name: Optional[str] = None,
     ):
         """
         Initialize an HOTP entry.
@@ -51,12 +52,13 @@ class HOTPEntry(OTPEntry):
             digits: Number of digits in the code (6, 7 or 8)
             counter: Initial counter value
             algorithm: Hash algorithm (SHA1, SHA256, SHA512)
+            name: User-chosen display name from the backup (optional)
 
         Raises:
             InvalidParameterError: If the counter is negative
         """
         self.counter = int(counter)
-        super().__init__(issuer, secret, account, digits, algorithm)
+        super().__init__(issuer, secret, account, digits, algorithm, name)
         self._validate_hotp_params()
 
     def _validate_hotp_params(self) -> None:

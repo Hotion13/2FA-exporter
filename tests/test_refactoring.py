@@ -51,6 +51,7 @@ def test_otpfactory_create_from_2fas():
         assert entry.secret == "JBSWY3DPEHPK3PXP"
         assert entry.digits == 6
         assert entry.period == 30
+        assert entry.name == "GitHub"
         print("  ✅ TOTP created successfully")
     except Exception as e:
         print(f"  ❌ TOTP error: {e}")
@@ -333,6 +334,65 @@ def test_utils_functions():
     return True
 
 
+def test_filename_source():
+    """Test the --filename-source option (issuer vs 2FAS display name)."""
+    print("🧪 Testing filename source (issuer vs name)...")
+
+    from main import generate_qr_codes_from_entries
+
+    # Mimics a Proxmox entry: custom display name, issuer set by the QR link
+    service = {
+        "secret": "JBSWY3DPEHPK3PXP",
+        "name": "homelab pve1",
+        "otp": {
+            "issuer": "Proxmox VE - homelab-1",
+            "account": "root@pam",
+            "tokenType": "TOTP",
+        },
+    }
+
+    try:
+        entry = OTPFactory.create_from_2fas(service)
+        assert entry.name == "homelab pve1"
+        assert entry.issuer == "Proxmox VE - homelab-1"
+
+        with tempfile.TemporaryDirectory() as output_dir:
+            success, errors = generate_qr_codes_from_entries(
+                [entry], output_dir, filename_source="issuer"
+            )
+            assert (success, errors) == (1, 0)
+            assert os.listdir(output_dir) == ["Proxmox_VE_-_homelab-1_root@pam.png"]
+        print("  ✅ Default naming uses the issuer")
+
+        with tempfile.TemporaryDirectory() as output_dir:
+            success, errors = generate_qr_codes_from_entries(
+                [entry], output_dir, filename_source="name"
+            )
+            assert (success, errors) == (1, 0)
+            assert os.listdir(output_dir) == ["homelab_pve1_root@pam.png"]
+        print("  ✅ filename_source='name' uses the 2FAS display name")
+
+        # Entry without a display name (e.g. from an otpauth URL): fallback
+        url_entry = OTPFactory.parse_otpauth_url(
+            "otpauth://totp/Proxmox:root@pam?secret=JBSWY3DPEHPK3PXP&issuer=Proxmox"
+        )
+        assert url_entry.name is None
+
+        with tempfile.TemporaryDirectory() as output_dir:
+            success, errors = generate_qr_codes_from_entries(
+                [url_entry], output_dir, filename_source="name"
+            )
+            assert (success, errors) == (1, 0)
+            assert os.listdir(output_dir) == ["Proxmox_root@pam.png"]
+        print("  ✅ Entries without a name fall back to the issuer")
+
+    except Exception as e:
+        print(f"  ❌ Filename source error: {e}")
+        return False
+
+    return True
+
+
 def test_qr_code_generation():
     """Test otpauth URL generation and round-trip."""
     print("🧪 Testing otpauth URL generation...")
@@ -380,6 +440,7 @@ def main():
         test_backup_processor_factory,
         test_password_provider,
         test_utils_functions,
+        test_filename_source,
         test_qr_code_generation,
     ]
 

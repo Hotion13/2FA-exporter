@@ -38,6 +38,7 @@ class TOTPEntry(OTPEntry):
         digits: int = OTPConfig.DEFAULT_DIGITS,
         period: int = OTPConfig.DEFAULT_PERIOD,
         algorithm: str = OTPConfig.DEFAULT_ALGORITHM,
+        name: Optional[str] = None,
     ):
         """
         Initialize a TOTP entry.
@@ -49,12 +50,13 @@ class TOTPEntry(OTPEntry):
             digits: Number of digits in the code (6, 7 or 8)
             period: Renewal period in seconds
             algorithm: Hash algorithm (SHA1, SHA256, SHA512)
+            name: User-chosen display name from the backup (optional)
 
         Raises:
             InvalidParameterError: If the period is out of bounds
         """
         self.period = int(period)
-        super().__init__(issuer, secret, account, digits, algorithm)
+        super().__init__(issuer, secret, account, digits, algorithm, name)
         self._validate_totp_params()
 
     def _validate_totp_params(self) -> None:
